@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F0FCFF65-7291-4F4A-9591-89C1617032DC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RotationAnalysis.Core", "src\RotationAnalysis.Core\RotationAnalysis.Core.csproj", "{858EDE72-A9B9-40D3-8945-AA6408AAFDE5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RotationAnalysis.App", "src\RotationAnalysis.App\RotationAnalysis.App.csproj", "{CA10DBE1-2F09-4CAE-90BC-C69D0D1E10FA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RotationAnalysis.Core.Tests", "src\RotationAnalysis.Core.Tests\RotationAnalysis.Core.Tests.csproj", "{D0E58759-D8E8-40D4-AF50-3A9CD1761105}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{858EDE72-A9B9-40D3-8945-AA6408AAFDE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{858EDE72-A9B9-40D3-8945-AA6408AAFDE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{858EDE72-A9B9-40D3-8945-AA6408AAFDE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{858EDE72-A9B9-40D3-8945-AA6408AAFDE5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA10DBE1-2F09-4CAE-90BC-C69D0D1E10FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA10DBE1-2F09-4CAE-90BC-C69D0D1E10FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA10DBE1-2F09-4CAE-90BC-C69D0D1E10FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA10DBE1-2F09-4CAE-90BC-C69D0D1E10FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D0E58759-D8E8-40D4-AF50-3A9CD1761105}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D0E58759-D8E8-40D4-AF50-3A9CD1761105}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D0E58759-D8E8-40D4-AF50-3A9CD1761105}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D0E58759-D8E8-40D4-AF50-3A9CD1761105}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{858EDE72-A9B9-40D3-8945-AA6408AAFDE5} = {F0FCFF65-7291-4F4A-9591-89C1617032DC}
+		{CA10DBE1-2F09-4CAE-90BC-C69D0D1E10FA} = {F0FCFF65-7291-4F4A-9591-89C1617032DC}
+		{D0E58759-D8E8-40D4-AF50-3A9CD1761105} = {F0FCFF65-7291-4F4A-9591-89C1617032DC}
+	EndGlobalSection
+EndGlobal
