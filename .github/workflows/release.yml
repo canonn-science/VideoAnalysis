@@ -49,9 +49,17 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish\* -DestinationPath "RotationAnalysisLab-${{ steps.vars.outputs.tag }}-win-x64.zip"
 
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.vars.outputs.tag }}" -replace '^v', ''
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" installer\Setup.iss
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
-          files: RotationAnalysisLab-${{ steps.vars.outputs.tag }}-win-x64.zip
+          files: |
+            RotationAnalysisLab-${{ steps.vars.outputs.tag }}-win-x64.zip
+            dist/RotationAnalysisLab-*-win-x64-Setup.exe
           generate_release_notes: true
