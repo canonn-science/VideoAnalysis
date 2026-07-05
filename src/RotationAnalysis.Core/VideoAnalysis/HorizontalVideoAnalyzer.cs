@@ -9,7 +9,6 @@ public sealed class HorizontalVideoAnalysisResult
     public required double MedianRollDegrees { get; init; }
     public required int ChunksUsed { get; init; }
     public required int ChunksAvailable { get; init; }
-    public required string TimelapseImagePath { get; init; }
     public required double VideoFps { get; init; }
     public required Size FrameSize { get; init; }
 }
@@ -26,7 +25,6 @@ public static class HorizontalVideoAnalyzer
 
     public static Task<HorizontalVideoAnalysisResult> AnalyzeAsync(
         string videoPath,
-        string timelapseOutputDirectory,
         double? seedPeriodSeconds = null,
         IProgress<VideoAnalysisProgress>? progress = null,
         CancellationToken ct = default)
@@ -34,8 +32,7 @@ public static class HorizontalVideoAnalyzer
         return Task.Run(() =>
         {
             progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.Opening, 0, "Opening video"));
-            var tracking = HorizontalStarTracker.Track(videoPath, progress, ct);
-            using var timelapse = tracking.Timelapse;
+            var tracking = HorizontalStarTracker.Track(videoPath, progress, ct, estimatedPeriodSeconds: seedPeriodSeconds);
 
             ct.ThrowIfCancellationRequested();
             if (tracking.Chunks.Count == 0)
@@ -84,11 +81,6 @@ public static class HorizontalVideoAnalyzer
             double confidence = ComputeConfidence(chunkResults, median);
             double medianRoll = Median(chunkResults.Select(r => r.RollDegrees).OrderBy(r => r).ToList());
 
-            progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.SolvingRotation, 99, "Rendering timelapse image"));
-            Directory.CreateDirectory(timelapseOutputDirectory);
-            string timelapsePath = Path.Combine(timelapseOutputDirectory, $"timelapse_{DateTime.UtcNow:yyyyMMdd_HHmmss}.png");
-            TimelapseRenderer.Save(timelapse, timelapsePath);
-
             progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.Done, 100, "Done"));
 
             return new HorizontalVideoAnalysisResult
@@ -98,7 +90,6 @@ public static class HorizontalVideoAnalyzer
                 MedianRollDegrees = medianRoll,
                 ChunksUsed = chunkResults.Count,
                 ChunksAvailable = tracking.Chunks.Count,
-                TimelapseImagePath = timelapsePath,
                 VideoFps = tracking.Fps,
                 FrameSize = tracking.FrameSize,
             };

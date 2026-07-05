@@ -51,11 +51,11 @@ The upload prompt shows an example reference shot and these instructions, and ac
 
 `HorizontalVideoAnalyzer` runs the pipeline off the UI thread:
 
-1. **Track.** `HorizontalStarTracker` splits the video into chunks and tracks stars across frames within each chunk, building a timelapse composite as it goes.
+0. **Open.** `HorizontalStarTracker` opens the video and reports its resolution, frame rate, and duration back to the UI immediately (shown in the processing window and kept visible for the rest of the run).
+1. **Track.** The video is split into chunks and stars are tracked frame-to-frame within each chunk. For long estimated periods, per-frame motion is tiny, so the tracker skips real frames between optical-flow samples (up to a 12x stride) rather than processing every one — the stride is sized from the ring's Kepler estimate so the pixel shift between sampled frames stays roughly constant regardless of period length.
 2. **Solve per chunk.** Each chunk is fit independently by `HorizontalRotationSolver` against a fixed vertical roll axis (not a fitted in-frame center, since the horizon framing keeps the axis effectively fixed). Each chunk's solved period seeds the next chunk's solve. Chunks with fewer than 20 usable tracks, or a non-finite period, are discarded.
 3. **Combine.** The observed period is the median across all chunks that produced a usable fit.
 4. **Confidence.** A heuristic, not a statistical guarantee — there's no ground truth at runtime. With 2+ chunks, it's based on the coefficient of variation across chunks' periods (they're independent measurements of one true rate, since Elite's rings rotate as a rigid disk). With only one usable chunk, it's based on agreement among that chunk's own tracked stars. Either way, a 5% relative spread maps to 0% confidence, scaling up to 100% at zero spread.
-5. **Timelapse.** The composited star-trail image is saved to disk (`TimelapseRenderer`) alongside the log.
 
 If no stars can be tracked at all, or no chunk produces a reliable fit, the user gets an explanatory error asking for a longer or clearer recording instead of a result.
 

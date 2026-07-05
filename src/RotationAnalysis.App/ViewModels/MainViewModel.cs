@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.IO;
 using RotationAnalysis.App.Infrastructure;
 using RotationAnalysis.Core.Domain;
 using RotationAnalysis.Core.Spansh;
@@ -11,10 +10,6 @@ namespace RotationAnalysis.App.ViewModels;
 
 public sealed class MainViewModel : ObservableObject
 {
-    private static readonly string TimelapseDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "RotationAnalysisLab", "timelapses");
-
     private readonly SpanshClient _spanshClient = new();
     private readonly MeasurementCsvStore _measurementStore = new();
 
@@ -152,7 +147,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public Task<HorizontalVideoAnalysisResult> AnalyzeVideoAsync(string videoPath, double? seedPeriodSeconds, IProgress<VideoAnalysisProgress> progress, CancellationToken ct)
-        => HorizontalVideoAnalyzer.AnalyzeAsync(videoPath, TimelapseDirectory, seedPeriodSeconds, progress, ct);
+        => HorizontalVideoAnalyzer.AnalyzeAsync(videoPath, seedPeriodSeconds, progress, ct);
 
     public void SaveMeasurement(RingRowViewModel row, HorizontalVideoAnalysisResult result, string videoPath)
     {

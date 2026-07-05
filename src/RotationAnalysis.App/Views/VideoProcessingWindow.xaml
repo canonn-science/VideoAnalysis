@@ -18,16 +18,20 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="StatusText" Grid.Column="0" Text="Opening video…" TextWrapping="Wrap"
-                               FontSize="15" Foreground="{StaticResource CanonnTextBrightBrush}" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="FrameCounterText" Grid.Column="1" Margin="12,0,0,0" FontSize="15"
-                               Foreground="{StaticResource CanonnAccentBrush}" VerticalAlignment="Center"/>
-                </Grid>
+                <StackPanel Grid.Row="0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="StatusText" Grid.Column="0" Text="Opening video…" TextWrapping="Wrap"
+                                   FontSize="15" Foreground="{StaticResource CanonnTextBrightBrush}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="FrameCounterText" Grid.Column="1" Margin="12,0,0,0" FontSize="15"
+                                   Foreground="{StaticResource CanonnAccentBrush}" VerticalAlignment="Center"/>
+                    </Grid>
+                    <TextBlock x:Name="VideoMetaText" Margin="0,4,0,0" FontSize="13"
+                               Foreground="{StaticResource CanonnTextBrush}"/>
+                </StackPanel>
 
                 <ProgressBar x:Name="ProgressBarControl" Grid.Row="1" Margin="0,10,0,0" Height="8" Minimum="0" Maximum="100"
                              Foreground="{StaticResource CanonnAccentBrush}"/>

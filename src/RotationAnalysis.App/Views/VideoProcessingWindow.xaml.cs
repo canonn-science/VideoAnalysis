@@ -33,6 +33,11 @@ public partial class VideoProcessingWindow : Window
             StatusText.Text = p.Message;
             FrameCounterText.Text = p.TotalFrames > 0 ? $"Frame {p.FramesProcessed} of {p.TotalFrames}" : string.Empty;
 
+            if (p.Stage == VideoAnalysisStage.Opening && !string.IsNullOrEmpty(p.Message))
+            {
+                VideoMetaText.Text = p.Message;
+            }
+
             if (p.PreviewImageBytes is { Length: > 0 } bytes)
             {
                 var bitmap = new BitmapImage();

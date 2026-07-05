@@ -14,7 +14,7 @@ Anyone recording ring-rotation footage for Canonn, or processing footage that's 
    - a suggested recording duration (roughly the estimated period divided by 36, rounded up to the nearest minute).
 3. **Record the video in-game.** For the ring you want to measure, park on the ring surface in free camera, face the horizon (not straight up at the rotation center), keep the horizon roughly centered with open starfield above it, avoid zooming, and record for at least the suggested duration.
 4. **Upload the recording.** Click "Select Video…" on that ring's row (or drag and drop the file) to hand the video to the app.
-5. **Get the result.** The app tracks stars across the frame as the disk you're standing on rotates, solves for the observed rotation period, and renders a timelapse image of the star trails. A results dialog shows the estimated vs. observed period, the percent difference, and a confidence score. Saving the result appends a row to a local CSV log (system, coordinates, ring geometry, estimated/observed periods, video filename), viewable from the "Measurement History" tab, which also has a button to reveal the CSV file on disk.
+5. **Get the result.** The app tracks stars across the frame as the disk you're standing on rotates and solves for the observed rotation period. A results dialog shows the estimated vs. observed period, the percent difference, and a confidence score. Saving the result appends a row to a local CSV log (system, coordinates, ring geometry, estimated/observed periods, video filename), viewable from the "Measurement History" tab, which also has a button to reveal the CSV file on disk.
 
 ## Download
 

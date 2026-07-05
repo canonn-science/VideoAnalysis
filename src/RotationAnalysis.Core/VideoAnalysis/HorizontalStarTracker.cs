@@ -14,9 +14,6 @@ public sealed class HorizontalTrackingResult
     public required List<HorizontalChunk> Chunks { get; init; }
     public required double Fps { get; init; }
     public required Size FrameSize { get; init; }
-
-    /// <summary>Running max-blend of every frame read during tracking. Caller owns disposal.</summary>
-    public required Mat Timelapse { get; init; }
 }
 
 /// <summary>
@@ -42,7 +39,8 @@ public static class HorizontalStarTracker
         int winSize = 15,
         int maxLevel = 3,
         float errorThreshold = 15f,
-        double horizonFraction = 0.45)
+        double horizonFraction = 0.45,
+        double? estimatedPeriodSeconds = null)
     {
         using var capture = new VideoCapture(videoPath);
         if (!capture.IsOpened())
@@ -54,6 +52,12 @@ public static class HorizontalStarTracker
         var frameSize = new Size(capture.FrameWidth, capture.FrameHeight);
         int estimatedTotal = capture.FrameCount > 0 ? capture.FrameCount : 1;
         int chunkFrames = Math.Max(30, (int)Math.Round(chunkSeconds * fps));
+        int frameStride = ComputeFrameStride(fps, estimatedPeriodSeconds);
+
+        string strideNote = frameStride > 1 ? $" · sampling every {frameStride} frames (long estimated period)" : "";
+        progress?.Report(new VideoAnalysisProgress(
+            VideoAnalysisStage.Opening, 5,
+            $"{frameSize.Width}×{frameSize.Height} · {fps:0.##} fps · {FormatDuration(estimatedTotal / fps)}{strideNote}"));
 
         int horizonCutoff = (int)(frameSize.Height * horizonFraction);
         using var mask = new Mat(frameSize, MatType.CV_8UC1, Scalar.All(0));
@@ -69,24 +73,21 @@ public static class HorizontalStarTracker
         Mat? prevGray = null;
         int posInChunk = 0;
         int chunkStartFrame = 0;
-        int globalFrameIndex = -1;
+        int realFrameIndex = -1;
         const int previewIntervalFrames = 5;
-        Mat? timelapse = null;
 
         using var frame = new Mat();
-        while (capture.Read(frame))
+        while (capture.Grab())
         {
             ct.ThrowIfCancellationRequested();
-            globalFrameIndex++;
+            realFrameIndex++;
 
-            if (timelapse is null)
+            if (realFrameIndex % frameStride != 0)
             {
-                timelapse = frame.Clone();
+                continue;
             }
-            else
-            {
-                Cv2.Max(timelapse, frame, timelapse);
-            }
+
+            capture.Retrieve(frame);
 
             if (posInChunk == 0)
             {
@@ -95,7 +96,7 @@ public static class HorizontalStarTracker
                     chunks.Add(new HorizontalChunk { Tracks = currentTracks, StartFrame = chunkStartFrame, FrameCount = chunkFrames });
                 }
 
-                chunkStartFrame = globalFrameIndex;
+                chunkStartFrame = realFrameIndex;
                 var gray0 = new Mat();
                 Cv2.CvtColor(frame, gray0, ColorConversionCodes.BGR2GRAY);
                 var pts0 = Cv2.GoodFeaturesToTrack(gray0, maxCorners, qualityLevel, minDistance, mask: mask, blockSize: 3, useHarrisDetector: false, k: 0.04);
@@ -114,7 +115,7 @@ public static class HorizontalStarTracker
                 currentPts = pts0;
                 prevGray?.Dispose();
                 prevGray = gray0;
-                posInChunk = 1;
+                posInChunk = frameStride;
             }
             else
             {
@@ -151,22 +152,22 @@ public static class HorizontalStarTracker
                 prevGray?.Dispose();
                 prevGray = gray;
 
-                posInChunk++;
+                posInChunk += frameStride;
                 if (posInChunk >= chunkFrames)
                 {
                     posInChunk = 0;
                 }
             }
 
-            int percent = Math.Min(85, 5 + (globalFrameIndex + 1) * 80 / Math.Max(1, estimatedTotal));
+            int percent = Math.Min(85, 5 + (realFrameIndex + 1) * 80 / Math.Max(1, estimatedTotal));
             byte[]? previewBytes = null;
-            if (globalFrameIndex % previewIntervalFrames == 0)
+            if (frameStride > 1 || realFrameIndex % previewIntervalFrames == 0)
             {
                 Cv2.ImEncode(".jpg", frame, out previewBytes);
             }
             progress?.Report(new VideoAnalysisProgress(
-                VideoAnalysisStage.Tracking, percent, $"Tracking frame {globalFrameIndex + 1} of {estimatedTotal}",
-                FramesProcessed: globalFrameIndex + 1, TotalFrames: estimatedTotal, PreviewImageBytes: previewBytes));
+                VideoAnalysisStage.Tracking, percent, $"Tracking frame {realFrameIndex + 1} of {estimatedTotal}",
+                FramesProcessed: realFrameIndex + 1, TotalFrames: estimatedTotal, PreviewImageBytes: previewBytes));
         }
 
         if (currentTracks != null)
@@ -179,11 +180,49 @@ public static class HorizontalStarTracker
         }
         prevGray?.Dispose();
 
-        if (timelapse is null)
+        if (realFrameIndex < 0)
         {
             throw new InvalidOperationException("Video has no frames.");
         }
 
-        return new HorizontalTrackingResult { Chunks = chunks, Fps = fps, FrameSize = frameSize, Timelapse = timelapse };
+        return new HorizontalTrackingResult { Chunks = chunks, Fps = fps, FrameSize = frameSize };
+    }
+
+    /// <summary>
+    /// Picks how many real frames to advance between optical-flow samples. For long estimated
+    /// periods the apparent per-frame star motion is tiny, so consecutive frames add tracking cost
+    /// without adding information; this keeps the pixel shift between sampled frames near a fixed
+    /// target instead of always processing every single frame. Falls back to 1 (no skipping) when
+    /// there's no usable estimate. The focal length used here is just a rough stand-in for the
+    /// solver's later fitted value - it only needs to be in the right ballpark to size the stride.
+    /// </summary>
+    private static int ComputeFrameStride(double fps, double? estimatedPeriodSeconds)
+    {
+        const double approxFocalLengthPx = 1347.0;
+        const double targetPixelShiftPerStep = 4.0;
+        const int maxFrameStride = 12;
+
+        if (estimatedPeriodSeconds is not double period || period <= 0 || double.IsNaN(period) || double.IsInfinity(period))
+        {
+            return 1;
+        }
+
+        double omega = 2 * Math.PI / period;
+        double idealStride = targetPixelShiftPerStep * fps / (approxFocalLengthPx * omega);
+        return (int)Math.Clamp(Math.Round(idealStride), 1, maxFrameStride);
+    }
+
+    private static string FormatDuration(double totalSeconds)
+    {
+        var span = TimeSpan.FromSeconds(totalSeconds);
+        if (span.TotalHours >= 1)
+        {
+            return $"{(int)span.TotalHours}h {span.Minutes}m {span.Seconds}s";
+        }
+        if (span.TotalMinutes >= 1)
+        {
+            return $"{span.Minutes}m {span.Seconds}s";
+        }
+        return $"{span.Seconds}s";
     }
 }
