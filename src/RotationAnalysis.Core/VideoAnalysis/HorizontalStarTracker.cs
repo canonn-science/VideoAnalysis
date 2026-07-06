@@ -5,8 +5,6 @@ namespace RotationAnalysis.Core.VideoAnalysis;
 public sealed class HorizontalChunk
 {
     public required List<StarTrack> Tracks { get; init; }
-    public required int StartFrame { get; init; }
-    public required int FrameCount { get; init; }
 }
 
 public sealed class HorizontalTrackingResult
@@ -72,7 +70,6 @@ public static class HorizontalStarTracker
         Point2f[] currentPts = Array.Empty<Point2f>();
         Mat? prevGray = null;
         int posInChunk = 0;
-        int chunkStartFrame = 0;
         int realFrameIndex = -1;
         const int previewIntervalFrames = 5;
 
@@ -93,10 +90,9 @@ public static class HorizontalStarTracker
             {
                 if (currentTracks != null)
                 {
-                    chunks.Add(new HorizontalChunk { Tracks = currentTracks, StartFrame = chunkStartFrame, FrameCount = chunkFrames });
+                    chunks.Add(new HorizontalChunk { Tracks = currentTracks });
                 }
 
-                chunkStartFrame = realFrameIndex;
                 var gray0 = new Mat();
                 Cv2.CvtColor(frame, gray0, ColorConversionCodes.BGR2GRAY);
                 var pts0 = Cv2.GoodFeaturesToTrack(gray0, maxCorners, qualityLevel, minDistance, mask: mask, blockSize: 3, useHarrisDetector: false, k: 0.04);
@@ -175,7 +171,7 @@ public static class HorizontalStarTracker
             int frameCount = posInChunk == 0 ? chunkFrames : posInChunk;
             if (frameCount >= 30)
             {
-                chunks.Add(new HorizontalChunk { Tracks = currentTracks, StartFrame = chunkStartFrame, FrameCount = frameCount });
+                chunks.Add(new HorizontalChunk { Tracks = currentTracks });
             }
         }
         prevGray?.Dispose();
@@ -198,7 +194,7 @@ public static class HorizontalStarTracker
     /// </summary>
     private static int ComputeFrameStride(double fps, double? estimatedPeriodSeconds)
     {
-        const double approxFocalLengthPx = 1347.0;
+        const double approxFocalLengthPx = HorizontalRotationSolver.DefaultSeedFocalLengthPx;
         const double targetPixelShiftPerStep = 4.0;
         const int maxFrameStride = 12;
 

@@ -18,7 +18,7 @@ public sealed class MeasurementsViewModel : ObservableObject
         Refresh();
     }
 
-    public ObservableCollection<MeasurementRecord> Records { get; } = new();
+    public ObservableCollection<MeasurementRowViewModel> Records { get; } = new();
 
     public RelayCommand RefreshCommand { get; }
     public RelayCommand ShowOnDiskCommand { get; }
@@ -28,7 +28,7 @@ public sealed class MeasurementsViewModel : ObservableObject
         Records.Clear();
         foreach (var record in _store.ReadAll().OrderByDescending(r => r.Timestamp))
         {
-            Records.Add(record);
+            Records.Add(new MeasurementRowViewModel(record));
         }
     }
 

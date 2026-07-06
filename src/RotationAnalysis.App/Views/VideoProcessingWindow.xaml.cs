@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using RotationAnalysis.App.ViewModels;
+using RotationAnalysis.Core.Diagnostics;
 using RotationAnalysis.Core.VideoAnalysis;
 
 namespace RotationAnalysis.App.Views;
@@ -62,6 +63,7 @@ public partial class VideoProcessingWindow : Window
         }
         catch (Exception ex)
         {
+            AppLog.LogError("AnalyzeVideo", ex);
             FailureMessage = ex.Message;
             DialogResult = false;
         }

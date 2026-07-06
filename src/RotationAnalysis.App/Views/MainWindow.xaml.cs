@@ -14,6 +14,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.VideoSelectionRequested += OnVideoSelectionRequested;
+        Closed += (_, _) => _viewModel.Dispose();
     }
 
     private async void SystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
@@ -57,7 +58,7 @@ public partial class MainWindow : Window
         await _viewModel.SubmitAsync(null);
     }
 
-    private void OnVideoSelectionRequested(RingRowViewModel row)
+    private async void OnVideoSelectionRequested(RingRowViewModel row)
     {
         var promptWindow = new VideoUploadPromptWindow { Owner = this };
         if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
@@ -78,7 +79,12 @@ public partial class MainWindow : Window
         }
         else if (processingWindow.FailureMessage is not null)
         {
-            MessageBox.Show(this, processingWindow.FailureMessage, "Video analysis failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await new ContentDialog
+            {
+                Title = "Video analysis failed",
+                Content = processingWindow.FailureMessage,
+                CloseButtonText = "OK",
+            }.ShowAsync();
         }
     }
 }

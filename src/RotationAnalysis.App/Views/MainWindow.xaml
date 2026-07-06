@@ -119,13 +119,25 @@
                         <Button Content="Show File on Disk" Command="{Binding ShowOnDiskCommand}" Padding="12,6"
                                 Background="{StaticResource CanonnAccentBrush}" Foreground="White"/>
                     </StackPanel>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding Records}" AutoGenerateColumns="True"
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding Records}" AutoGenerateColumns="False"
                               IsReadOnly="True" CanUserAddRows="False"
                               SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
                               Background="{StaticResource CanonnSurface2Brush}"
                               RowBackground="{StaticResource CanonnSurfaceBrush}"
                               AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                              BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"/>
+                              BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Recorded" Binding="{Binding TimestampDisplay}" Width="130"/>
+                            <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="140"/>
+                            <DataGridTextColumn Header="Ring / Belt Name" Binding="{Binding RingName}" Width="160"/>
+                            <DataGridTextColumn Header="Inner Radius km" Binding="{Binding InnerRadiusDisplay}" Width="100"/>
+                            <DataGridTextColumn Header="Outer Radius km" Binding="{Binding OuterRadiusDisplay}" Width="100"/>
+                            <DataGridTextColumn Header="Width km" Binding="{Binding WidthDisplay}" Width="90"/>
+                            <DataGridTextColumn Header="Estimated Rotation s" Binding="{Binding EstimatedRotationDisplay}" Width="140"/>
+                            <DataGridTextColumn Header="Observed Rotation s" Binding="{Binding ObservedRotationDisplay}" Width="140"/>
+                            <DataGridTextColumn Header="Video File" Binding="{Binding VideoFilename}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
             </TabItem>
         </TabControl>

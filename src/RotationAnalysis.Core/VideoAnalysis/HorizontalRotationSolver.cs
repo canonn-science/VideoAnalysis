@@ -32,6 +32,10 @@ public static class HorizontalRotationSolver
 {
     private const int MinPointsPerTrack = 20;
 
+    /// <summary>Rough seed focal length in pixels, derived from the game's default vertical FOV.
+    /// Each chunk's solve refines its own actual value starting from here.</summary>
+    public const double DefaultSeedFocalLengthPx = 1347.0;
+
     public static HorizontalChunkResult Solve(
         IReadOnlyList<StarTrack> tracks, double fps, double frameWidth, double frameHeight, double seedF, double seedPeriod,
         CancellationToken ct = default, Action<double>? onProgress = null)
@@ -40,7 +44,12 @@ public static class HorizontalRotationSolver
         double py0 = frameHeight / 2.0;
         double seedOmega = 2 * Math.PI / seedPeriod;
 
-        double Objective(double[] p) => EvaluateCost(tracks, fps, px0, py0, p[0], p[1], p[2], out _, out _, out _);
+        // Reused across every objective-function call (thousands per chunk) instead of allocating
+        // fresh per-track buffers on each evaluation - only the final call's contents are ever read.
+        var ownSlopes = new double[tracks.Count];
+        var weights = new double[tracks.Count];
+
+        double Objective(double[] p) => EvaluateCost(tracks, fps, px0, py0, p[0], p[1], p[2], ownSlopes, weights, out _);
 
         (double[] bestX, double bestCost) = (new[] { seedF, seedOmega, 0.0 }, double.MaxValue);
         int[] signs = { 1, -1 };
@@ -60,7 +69,7 @@ public static class HorizontalRotationSolver
         double f = bestX[0];
         double omega = bestX[1];
         double roll = bestX[2];
-        EvaluateCost(tracks, fps, px0, py0, f, omega, roll, out var ownSlopes, out var weights, out int tracksUsed);
+        EvaluateCost(tracks, fps, px0, py0, f, omega, roll, ownSlopes, weights, out int tracksUsed);
 
         var goodPeriods = new List<double>();
         for (int i = 0; i < ownSlopes.Length; i++)
@@ -84,11 +93,9 @@ public static class HorizontalRotationSolver
 
     private static double EvaluateCost(
         IReadOnlyList<StarTrack> tracks, double fps, double px0, double py0, double f, double omega, double roll,
-        out double[] ownSlopes, out double[] weights, out int tracksUsed)
+        double[] ownSlopes, double[] weights, out int tracksUsed)
     {
         int n = tracks.Count;
-        ownSlopes = new double[n];
-        weights = new double[n];
 
         if (f <= 100)
         {

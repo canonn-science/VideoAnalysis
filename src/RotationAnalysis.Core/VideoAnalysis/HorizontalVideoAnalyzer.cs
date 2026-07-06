@@ -41,7 +41,7 @@ public static class HorizontalVideoAnalyzer
                     "Could not track any stars in this video. Make sure the recording shows a clear starfield above the horizon, framed as illustrated.");
             }
 
-            const double seedF = 1347.0; // from the game's default vertical FOV; each chunk refines its own f
+            const double seedF = HorizontalRotationSolver.DefaultSeedFocalLengthPx;
             double runningSeedPeriod = seedPeriodSeconds is > 0 ? seedPeriodSeconds.Value : DefaultSeedPeriodSeconds;
 
             int totalChunks = tracking.Chunks.Count;

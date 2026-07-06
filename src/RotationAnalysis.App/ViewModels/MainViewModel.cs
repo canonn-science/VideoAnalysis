@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using RotationAnalysis.App.Infrastructure;
+using RotationAnalysis.Core.Diagnostics;
 using RotationAnalysis.Core.Domain;
 using RotationAnalysis.Core.Spansh;
 using RotationAnalysis.Core.Spansh.Models;
@@ -8,7 +10,7 @@ using RotationAnalysis.Core.VideoAnalysis;
 
 namespace RotationAnalysis.App.ViewModels;
 
-public sealed class MainViewModel : ObservableObject
+public sealed class MainViewModel : ObservableObject, IDisposable
 {
     private readonly SpanshClient _spanshClient = new();
     private readonly MeasurementCsvStore _measurementStore = new();
@@ -79,6 +81,7 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            AppLog.LogError("RefreshSuggestions", ex);
             ErrorMessage = $"Search failed: {ex.Message}";
         }
     }
@@ -138,6 +141,7 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            AppLog.LogError("SystemLookup", ex);
             ErrorMessage = $"Lookup failed: {ex.Message}";
         }
         finally
@@ -166,8 +170,10 @@ public sealed class MainViewModel : ObservableObject
             Width = ring.WidthMeters,
             EstimatedRotationSeconds = ring.EstimatedPeriodSeconds ?? double.NaN,
             ObservedRotationSeconds = result.ObservedPeriodSeconds,
-            VideoFilename = videoPath,
+            VideoFilename = Path.GetFileName(videoPath),
         });
         Measurements.Refresh();
     }
+
+    public void Dispose() => _spanshClient.Dispose();
 }
