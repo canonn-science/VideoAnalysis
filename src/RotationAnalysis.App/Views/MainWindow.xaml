@@ -6,7 +6,7 @@
         ui:WindowHelper.UseModernWindowStyle="True"
         Icon="/Assets/canonn.ico"
         Title="Rotation Analysis Lab" Height="780" Width="1150"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen" WindowState="Maximized">
     <Window.Resources>
         <converters:StringToVisibilityConverter x:Key="StringToVisibility"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
@@ -88,15 +88,15 @@
                               AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
                               BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="140"/>
-                            <DataGridTextColumn Header="Ring / Belt Name" Binding="{Binding RingName}" Width="180"/>
-                            <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="140"/>
-                            <DataGridTextColumn Header="Inner Radius" Binding="{Binding InnerRadiusDisplay}" Width="110"/>
-                            <DataGridTextColumn Header="Outer Radius" Binding="{Binding OuterRadiusDisplay}" Width="110"/>
-                            <DataGridTextColumn Header="Width" Binding="{Binding WidthDisplay}" Width="100"/>
-                            <DataGridTextColumn Header="Estimated Rotation" Binding="{Binding EstimatedPeriodDisplay}" Width="150"/>
-                            <DataGridTextColumn Header="Suggested Video Length" Binding="{Binding SuggestedDurationDisplay}" Width="160"/>
-                            <DataGridTemplateColumn Header="Video" Width="140">
+                            <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
+                            <DataGridTextColumn Header="Ring / Belt Name" Binding="{Binding RingName}" Width="Auto"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="Auto"/>
+                            <DataGridTextColumn Header="Inner Radius" Binding="{Binding InnerRadiusDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Outer Radius" Binding="{Binding OuterRadiusDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Width" Binding="{Binding WidthDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Estimated Rotation" Binding="{Binding EstimatedPeriodDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Suggested Video Length" Binding="{Binding SuggestedDurationDisplay}" Width="Auto"/>
+                            <DataGridTemplateColumn Header="Video" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
@@ -127,14 +127,14 @@
                               AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
                               BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Recorded" Binding="{Binding TimestampDisplay}" Width="130"/>
-                            <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="140"/>
-                            <DataGridTextColumn Header="Ring / Belt Name" Binding="{Binding RingName}" Width="160"/>
-                            <DataGridTextColumn Header="Inner Radius km" Binding="{Binding InnerRadiusDisplay}" Width="100"/>
-                            <DataGridTextColumn Header="Outer Radius km" Binding="{Binding OuterRadiusDisplay}" Width="100"/>
-                            <DataGridTextColumn Header="Width km" Binding="{Binding WidthDisplay}" Width="90"/>
-                            <DataGridTextColumn Header="Estimated Rotation s" Binding="{Binding EstimatedRotationDisplay}" Width="140"/>
-                            <DataGridTextColumn Header="Observed Rotation s" Binding="{Binding ObservedRotationDisplay}" Width="140"/>
+                            <DataGridTextColumn Header="Recorded" Binding="{Binding TimestampDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
+                            <DataGridTextColumn Header="Ring / Belt Name" Binding="{Binding RingName}" Width="Auto"/>
+                            <DataGridTextColumn Header="Inner Radius km" Binding="{Binding InnerRadiusDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Outer Radius km" Binding="{Binding OuterRadiusDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Width km" Binding="{Binding WidthDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Estimated Rotation s" Binding="{Binding EstimatedRotationDisplay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Observed Rotation s" Binding="{Binding ObservedRotationDisplay}" Width="Auto"/>
                             <DataGridTextColumn Header="Video File" Binding="{Binding VideoFilename}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
