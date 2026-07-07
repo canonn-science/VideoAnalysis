@@ -22,7 +22,6 @@ public partial class UpdateDownloadWindow : Window
         StatusText.Text = $"Downloading Rotation Analysis Lab {updateInfo.Version}…";
         Loaded += UpdateDownloadWindow_Loaded;
         Closing += (_, _) => _cts.Cancel();
-        Closed += (_, _) => _cts.Dispose();
     }
 
     private async void UpdateDownloadWindow_Loaded(object sender, RoutedEventArgs e)
@@ -50,6 +49,13 @@ public partial class UpdateDownloadWindow : Window
             FailureMessage = ex.Message;
             if (IsVisible) DialogResult = false;
         }
+        finally
+        {
+            // Dispose after all use of the token is complete.  Closing fires before this
+            // finally runs (Closing → Close() returns → DialogResult assignment returns →
+            // finally), so _cts is never disposed before Cancel() is called.
+            _cts.Dispose();
+        }
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -61,7 +67,7 @@ public partial class UpdateDownloadWindow : Window
     private static void TryDeleteFile(string path)
     {
         try { File.Delete(path); }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        catch (IOException ex) { AppLog.LogError("DeleteTempInstaller", ex); }
+        catch (UnauthorizedAccessException ex) { AppLog.LogError("DeleteTempInstaller", ex); }
     }
 }
