@@ -21,7 +21,11 @@ public partial class UpdateDownloadWindow : Window
         _updateInfo = updateInfo;
         StatusText.Text = $"Downloading Rotation Analysis Lab {updateInfo.Version}…";
         Loaded += UpdateDownloadWindow_Loaded;
-        Closing += (_, _) => _cts.Cancel();
+        Closing += (_, _) =>
+        {
+            // Guard in case Closing fires after _cts is disposed (e.g. rapid shutdown).
+            try { _cts.Cancel(); } catch (ObjectDisposedException) { }
+        };
     }
 
     private async void UpdateDownloadWindow_Loaded(object sender, RoutedEventArgs e)
@@ -66,6 +70,8 @@ public partial class UpdateDownloadWindow : Window
 
     private static void TryDeleteFile(string path)
     {
+        // File.Delete does not throw when the file does not exist; IOException/
+        // UnauthorizedAccessException only occur for genuine I/O problems.
         try { File.Delete(path); }
         catch (IOException ex) { AppLog.LogError("DeleteTempInstaller", ex); }
         catch (UnauthorizedAccessException ex) { AppLog.LogError("DeleteTempInstaller", ex); }
