@@ -1,0 +1,25 @@
+<Window x:Class="RotationAnalysis.App.Views.UpdateDownloadWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        Icon="/Assets/canonn.ico"
+        Title="Downloading Update…" Height="200" Width="460"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="StatusText" Grid.Row="0" FontSize="15" TextWrapping="Wrap"
+                   Foreground="{StaticResource CanonnTextBrightBrush}"/>
+
+        <ProgressBar x:Name="ProgressBarControl" Grid.Row="1" Margin="0,14,0,0" Height="8" Minimum="0" Maximum="100"
+                     Foreground="{StaticResource CanonnAccentBrush}"/>
+
+        <Button Grid.Row="2" Content="Cancel" HorizontalAlignment="Right" Margin="0,16,0,0" Padding="16,8"
+                Click="CancelButton_Click"/>
+    </Grid>
+</Window>
