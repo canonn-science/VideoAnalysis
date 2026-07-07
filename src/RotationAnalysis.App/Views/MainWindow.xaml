@@ -9,6 +9,7 @@
         WindowStartupLocation="CenterScreen" WindowState="Maximized">
     <Window.Resources>
         <converters:StringToVisibilityConverter x:Key="StringToVisibility"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </Window.Resources>
 
@@ -31,7 +32,15 @@
                     <TextBlock Text="Measure ring &amp; belt rotation periods from Elite Dangerous recordings"
                                FontSize="12" Foreground="{StaticResource CanonnTextMutedBrush}" Margin="0,2,0,0"/>
                 </StackPanel>
-                <Image Grid.Column="1" Source="/Assets/canonn_logo.png" Height="64" Stretch="Uniform"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="CommanderNameButton" Click="CommanderNameButton_Click"
+                            Background="Transparent" BorderThickness="0" Padding="8,4" Margin="0,0,12,0"
+                            ToolTip="Click to edit your commander name" HorizontalContentAlignment="Right">
+                        <TextBlock Text="{Binding CommanderName}" FontWeight="SemiBold" FontSize="18"
+                                   Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                    </Button>
+                    <Image Source="/Assets/canonn_logo.png" Height="64" Stretch="Uniform"/>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -136,6 +145,26 @@
                             <DataGridTextColumn Header="Estimated Rotation s" Binding="{Binding EstimatedRotationDisplay}" Width="Auto"/>
                             <DataGridTextColumn Header="Observed Rotation s" Binding="{Binding ObservedRotationDisplay}" Width="Auto"/>
                             <DataGridTextColumn Header="Video File" Binding="{Binding VideoFilename}" Width="*"/>
+                            <DataGridTemplateColumn Header="Canonn" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Button Command="{Binding SendToCanonnCommand}"
+                                                    IsEnabled="{Binding CanSend}"
+                                                    Visibility="{Binding IsSubmitted, Converter={StaticResource InverseBoolToVisibility}}"
+                                                    Padding="6,4" ToolTip="{Binding SendTooltip}">
+                                                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE898;"
+                                                           Foreground="{StaticResource CanonnAccentBrush}"/>
+                                            </Button>
+                                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73E;"
+                                                       Foreground="#4CAF50" FontSize="16"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       ToolTip="Already submitted to Canonn"
+                                                       Visibility="{Binding IsSubmitted, Converter={StaticResource BoolToVisibility}}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

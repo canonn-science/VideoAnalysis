@@ -23,6 +23,9 @@ public sealed class MeasurementRecord
     [Name("z")]
     public double Z { get; set; }
 
+    [Name("Body Name")]
+    public string BodyName { get; set; } = string.Empty;
+
     [Name("Ring Name")]
     public string RingName { get; set; } = string.Empty;
 
@@ -45,4 +48,10 @@ public sealed class MeasurementRecord
 
     [Name("video filename")]
     public string VideoFilename { get; set; } = string.Empty;
+
+    /// <summary>Whether this app has submitted this measurement to Canonn. This is a local hint
+    /// only - the authoritative check is matching against Canonn's published TSV, since a
+    /// measurement can also have been submitted from another machine or app version.</summary>
+    [Name("submitted")]
+    public bool Submitted { get; set; }
 }

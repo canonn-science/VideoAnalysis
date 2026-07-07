@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using RotationAnalysis.App.Infrastructure;
+using RotationAnalysis.Core.Canonn;
 using RotationAnalysis.Core.Diagnostics;
 using RotationAnalysis.Core.Domain;
 using RotationAnalysis.Core.Spansh;
@@ -12,23 +13,42 @@ namespace RotationAnalysis.App.ViewModels;
 
 public sealed class MainViewModel : ObservableObject, IDisposable
 {
+    private const string DefaultCommanderName = "CMDR Your Name Here";
+
     private readonly SpanshClient _spanshClient = new();
+    private readonly CanonnClient _canonnClient = new();
     private readonly MeasurementCsvStore _measurementStore = new();
+    private readonly AppSettingsStore _settingsStore = new();
 
     private string _systemQuery = string.Empty;
     private string? _errorMessage;
     private bool _isBusy;
     private string? _resolvedSystemName;
+    private string _commanderName;
 
     public MainViewModel()
     {
-        Measurements = new MeasurementsViewModel(_measurementStore);
+        _commanderName = _settingsStore.Load().CommanderName ?? DefaultCommanderName;
+        Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
+        _ = LoadSubmittedFromCanonnAsync();
     }
 
     public string SystemQuery
     {
         get => _systemQuery;
         set => SetField(ref _systemQuery, value);
+    }
+
+    public string CommanderName
+    {
+        get => _commanderName;
+        set
+        {
+            if (SetField(ref _commanderName, value))
+            {
+                _settingsStore.Save(new AppSettings { CommanderName = value });
+            }
+        }
     }
 
     public string? ErrorMessage
@@ -153,7 +173,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public Task<HorizontalVideoAnalysisResult> AnalyzeVideoAsync(string videoPath, double? seedPeriodSeconds, IProgress<VideoAnalysisProgress> progress, CancellationToken ct)
         => HorizontalVideoAnalyzer.AnalyzeAsync(videoPath, seedPeriodSeconds, progress, ct);
 
-    public void SaveMeasurement(RingRowViewModel row, HorizontalVideoAnalysisResult result, string videoPath)
+    public void SaveMeasurement(RingRowViewModel row, HorizontalVideoAnalysisResult result, string videoPath, bool submittedToCanonn = false)
     {
         var ring = row.Ring;
         _measurementStore.Append(new MeasurementRecord
@@ -164,6 +184,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             X = ring.SystemX,
             Y = ring.SystemY,
             Z = ring.SystemZ,
+            BodyName = ring.BodyName,
             RingName = ring.RingName,
             InnerRadius = ring.InnerRadiusMeters,
             OuterRadius = ring.OuterRadiusMeters,
@@ -171,9 +192,63 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             EstimatedRotationSeconds = ring.EstimatedPeriodSeconds ?? double.NaN,
             ObservedRotationSeconds = result.ObservedPeriodSeconds,
             VideoFilename = Path.GetFileName(videoPath),
+            Submitted = submittedToCanonn,
         });
         Measurements.Refresh();
     }
 
-    public void Dispose() => _spanshClient.Dispose();
+    /// <summary>Submits the measurement currently shown in the results dialog - independent of
+    /// whether the user also chooses to save it to history.</summary>
+    public Task SubmitMeasurementToCanonnAsync(RingRowViewModel row, HorizontalVideoAnalysisResult result, CancellationToken ct = default)
+    {
+        var ring = row.Ring;
+        return _canonnClient.SubmitAsync(new CanonnSubmission
+        {
+            CommanderName = CommanderName,
+            SystemName = ring.SystemName,
+            BodyName = ring.BodyName,
+            RingName = ring.RingName,
+            InnerRadiusKm = ring.InnerRadiusMeters / 1000.0,
+            OuterRadiusKm = ring.OuterRadiusMeters / 1000.0,
+            WidthKm = ring.WidthMeters / 1000.0,
+            EstimatedPeriodSeconds = ring.EstimatedPeriodSeconds ?? double.NaN,
+            ObservedPeriodSeconds = result.ObservedPeriodSeconds,
+        }, ct);
+    }
+
+    private Task SubmitRecordToCanonnAsync(MeasurementRecord record, CancellationToken ct)
+    {
+        return _canonnClient.SubmitAsync(new CanonnSubmission
+        {
+            CommanderName = CommanderName,
+            SystemName = record.SystemName,
+            BodyName = record.BodyName,
+            RingName = record.RingName,
+            InnerRadiusKm = record.InnerRadius / 1000.0,
+            OuterRadiusKm = record.OuterRadius / 1000.0,
+            WidthKm = record.Width / 1000.0,
+            EstimatedPeriodSeconds = record.EstimatedRotationSeconds,
+            ObservedPeriodSeconds = record.ObservedRotationSeconds,
+        }, ct);
+    }
+
+    private async Task LoadSubmittedFromCanonnAsync()
+    {
+        try
+        {
+            var submitted = await _canonnClient.GetSubmittedMeasurementsAsync().ConfigureAwait(true);
+            Measurements.ApplyRemoteSubmittedState(submitted);
+        }
+        catch (Exception ex)
+        {
+            AppLog.LogError("LoadCanonnSubmitted", ex);
+            // Non-fatal: "already submitted" detection just falls back to the locally tracked flag.
+        }
+    }
+
+    public void Dispose()
+    {
+        _spanshClient.Dispose();
+        _canonnClient.Dispose();
+    }
 }

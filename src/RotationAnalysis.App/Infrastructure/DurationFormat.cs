@@ -9,7 +9,15 @@ public static class DurationFormat
             return "N/A";
         }
 
-        var span = TimeSpan.FromSeconds(Math.Abs(s));
+        var absSeconds = Math.Abs(s);
+        if (absSeconds > TimeSpan.MaxValue.TotalSeconds)
+        {
+            // A handful of dump entries produce an absurdly large Kepler estimate (bad parent
+            // mass data); TimeSpan.FromSeconds would overflow and crash the whole app.
+            return "N/A";
+        }
+
+        var span = TimeSpan.FromSeconds(absSeconds);
         if (span.TotalHours >= 1)
         {
             return $"{(int)span.TotalHours}h {span.Minutes}m {span.Seconds}s";

@@ -65,7 +65,7 @@ When processing finishes, a dialog shows: system/body/ring name, estimated vs. o
 
 ## Measurement log
 
-Saved measurements are appended as a row to a local CSV file with these columns (order matters — `MeasurementRecord` keeps them in this exact order):
+Saved measurements are appended as a row to a local CSV file with these columns (`MeasurementRecord` keeps them in this order); reading tolerates older files missing trailing columns:
 
 ```
 Timestamp
@@ -74,6 +74,7 @@ id64
 x
 y
 z
+Body Name
 Ring Name
 innerRadius
 outerRadius
@@ -81,6 +82,51 @@ Width
 estimated rotation
 observed rotation
 video filename
+submitted
 ```
 
 A "Measurement History" tab lists the logged rows and has a button to reveal the CSV file on disk.
+
+## Commander name
+
+The title bar shows the commander name ("CMDR Your Name Here" until set) beside the Canonn logo.
+Clicking it opens a small dialog to edit it. It's persisted as JSON at
+`%LocalAppData%\RotationAnalysisLab\settings.json` (`AppSettingsStore`) and restored on launch.
+
+## Submitting to Canonn
+
+A measurement can be sent to Canonn from two places:
+
+- The results dialog has a **Send to Canonn** button, independent of **Save to History** — a
+  measurement can be sent, saved, both, or neither. The button disables after a successful send
+  for the lifetime of that dialog.
+- Each row in Measurement History has a send icon; a successful send flips it to a green check
+  and persists `submitted = true` for that row.
+
+Submission is an HTTP GET to Canonn's Google Form (`CanonnClient.SubmitAsync`), with fields mapped
+to entry ids:
+
+| Field                       | URL Parameter          |
+| --------------------------- | ----------------------- |
+| Commander Name              | `entry.600905391`       |
+| System Name                 | `entry.1130968439`      |
+| Body Name                   | `entry.500354492`       |
+| Ring Name                   | `entry.1805555353`      |
+| Inner Radius (km)           | `entry.1741677072`      |
+| Outer Radius (km)           | `entry.1379006716`      |
+| Width (km)                  | `entry.1306863839`      |
+| Estimated Period (seconds)  | `entry.467530390`       |
+| Observed Period (seconds)   | `entry.1394317518`      |
+
+Radii/width are converted from the meters stored internally to kilometers; periods are already in
+seconds.
+
+### Detecting already-submitted measurements
+
+At startup, `CanonnClient.GetSubmittedMeasurementsAsync` downloads Canonn's published TSV of
+submitted measurements and caches it in memory. `CanonnMatcher.IsSubmitted` treats a local
+measurement as already submitted if a TSV row matches on commander name, system name, ring name,
+and inner/outer radius and observed period within a small tolerance (to absorb rounding). This is
+a fallback on top of the locally tracked `submitted` flag — the TSV can lag behind a submission
+that just happened, so the local flag is what immediately flips a row to "already submitted" after
+a successful send.

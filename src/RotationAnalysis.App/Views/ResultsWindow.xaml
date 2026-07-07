@@ -79,6 +79,10 @@
         </Border>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <TextBlock x:Name="SubmitErrorText" Foreground="#FF6B6B" VerticalAlignment="Center"
+                       Margin="0,0,12,0" TextWrapping="Wrap" MaxWidth="220"/>
+            <Button x:Name="SendToCanonnButton" Content="Send to Canonn" Padding="16,8" Margin="0,0,8,0"
+                    Click="SendToCanonnButton_Click"/>
             <Button Content="Cancel" Padding="16,8" Margin="0,0,8,0" Click="CancelButton_Click"/>
             <Button Content="Save to History" Padding="24,8"
                     Background="{StaticResource CanonnAccentBrush}" Foreground="White"

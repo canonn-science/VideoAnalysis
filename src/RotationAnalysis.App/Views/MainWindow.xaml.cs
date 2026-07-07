@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Navigation;
 using ModernWpf.Controls;
 using RotationAnalysis.App.ViewModels;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.VideoSelectionRequested += OnVideoSelectionRequested;
+        _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -129,6 +131,39 @@ public partial class MainWindow : Window
         await _viewModel.SubmitAsync(null);
     }
 
+    private async void CommanderNameButton_Click(object sender, RoutedEventArgs e)
+    {
+        var input = new TextBox { Text = _viewModel.CommanderName, MinWidth = 260 };
+        var dialog = new ContentDialog
+        {
+            Title = "Commander name",
+            Content = input,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        input.Loaded += (_, _) => input.SelectAll();
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            var name = input.Text.Trim();
+            if (name.Length > 0)
+            {
+                _viewModel.CommanderName = name;
+            }
+        }
+    }
+
+    private async void OnCanonnSubmissionFailed(string message)
+    {
+        await new ContentDialog
+        {
+            Title = "Send to Canonn failed",
+            Content = message,
+            CloseButtonText = "OK",
+        }.ShowAsync();
+    }
+
     private async void OnVideoSelectionRequested(RingRowViewModel row)
     {
         var promptWindow = new VideoUploadPromptWindow { Owner = this };
@@ -142,10 +177,10 @@ public partial class MainWindow : Window
 
         if (completed == true && processingWindow.Result is not null)
         {
-            var resultsWindow = new ResultsWindow(row, processingWindow.Result, videoPath) { Owner = this };
+            var resultsWindow = new ResultsWindow(_viewModel, row, processingWindow.Result, videoPath) { Owner = this };
             if (resultsWindow.ShowDialog() == true)
             {
-                _viewModel.SaveMeasurement(row, processingWindow.Result, videoPath);
+                _viewModel.SaveMeasurement(row, processingWindow.Result, videoPath, resultsWindow.SubmittedToCanonn);
             }
         }
         else if (processingWindow.FailureMessage is not null)
