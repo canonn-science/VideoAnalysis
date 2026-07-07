@@ -30,10 +30,12 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            tag="${{ inputs.tag }}"
           else
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            tag="${{ github.ref_name }}"
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
         run: dotnet test src/RotationAnalysis.Core.Tests/RotationAnalysis.Core.Tests.csproj -c Release
@@ -43,6 +45,7 @@ jobs:
           dotnet publish src/RotationAnalysis.App/RotationAnalysis.App.csproj
           -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=false
+          -p:Version=${{ steps.vars.outputs.version }}
           -o publish
 
       - name: Zip artifact
@@ -52,8 +55,7 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          $version = "${{ steps.vars.outputs.tag }}" -replace '^v', ''
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" installer\Setup.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.vars.outputs.version }}" installer\Setup.iss
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
