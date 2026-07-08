@@ -12,6 +12,7 @@ public static class RingMath
     public const double GravitationalConstant = 6.674e-11; // m^3 kg^-1 s^-2
     public const double SolarMassKg = 1.98892e30;
     public const double EarthMassKg = 5.9722e24;
+    public const double SolarRadiusKm = 695_700.0;
 
     public static double NominalRadiusMeters(double innerRadiusMeters, double outerRadiusMeters)
         => innerRadiusMeters + (outerRadiusMeters - innerRadiusMeters) * (3.0 / 8.0);

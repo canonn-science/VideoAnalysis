@@ -26,8 +26,28 @@ public sealed class MeasurementRecord
     [Name("Body Name")]
     public string BodyName { get; set; } = string.Empty;
 
+    /// <summary>Body subType from Spansh (Planet, Gas Giant, Star, etc.). Blank for rows written
+    /// before this column existed.</summary>
+    [Name("Body Type")]
+    public string BodyType { get; set; } = string.Empty;
+
+    /// <summary>Body mass, converted to Earth masses. Null for rows written before this column
+    /// existed, or where the source mass was unknown.</summary>
+    [Name("Body Mass")]
+    public double? BodyMassEarthMasses { get; set; }
+
     [Name("Ring Name")]
     public string RingName { get; set; } = string.Empty;
+
+    /// <summary>Ring type from Spansh (Rocky, Icy, Metallic, Metal Rich, etc.). Blank for rows
+    /// written before this column existed.</summary>
+    [Name("Ring Type")]
+    public string RingType { get; set; } = string.Empty;
+
+    /// <summary>Ring mass, as reported by Spansh. Null for rows written before this column
+    /// existed, or where the source mass was unknown.</summary>
+    [Name("Ring Mass")]
+    public double? RingMassKg { get; set; }
 
     [Name("innerRadius")]
     public double InnerRadius { get; set; }

@@ -34,6 +34,32 @@ public static class SystemParser
         return null;
     }
 
+    private static double? ResolveBodyMassEarthMasses(SpanshBody body)
+    {
+        if (body.SolarMasses is double solar)
+        {
+            return solar * (RingMath.SolarMassKg / RingMath.EarthMassKg);
+        }
+        if (body.EarthMasses is double earth)
+        {
+            return earth;
+        }
+        return null;
+    }
+
+    private static double? ResolveBodyRadiusKm(SpanshBody body)
+    {
+        if (body.Radius is double radiusKm)
+        {
+            return radiusKm;
+        }
+        if (body.SolarRadius is double solarRadius)
+        {
+            return solarRadius * RingMath.SolarRadiusKm;
+        }
+        return null;
+    }
+
     private static void AppendEntries(
         List<RingInfo> results,
         SpanshSystem system,
@@ -64,6 +90,10 @@ public static class SystemParser
                 RingName = entry.Name,
                 IsBelt = isBelt,
                 MaterialType = entry.Type,
+                BodyType = body.SubType ?? body.Type,
+                BodyMassEarthMasses = ResolveBodyMassEarthMasses(body),
+                BodyRadiusKm = ResolveBodyRadiusKm(body),
+                RingMassKg = entry.Mass,
                 InnerRadiusMeters = entry.InnerRadius,
                 OuterRadiusMeters = entry.OuterRadius,
                 EstimatedPeriodSeconds = estimatedPeriod,

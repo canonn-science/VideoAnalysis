@@ -57,6 +57,14 @@ public sealed class SpanshBody
     [JsonPropertyName("earthMasses")]
     public double? EarthMasses { get; set; }
 
+    /// <summary>Planet radius, in kilometers. Present only on bodies of type "Planet".</summary>
+    [JsonPropertyName("radius")]
+    public double? Radius { get; set; }
+
+    /// <summary>Star radius, in multiples of the Sun's radius. Present only on bodies of type "Star".</summary>
+    [JsonPropertyName("solarRadius")]
+    public double? SolarRadius { get; set; }
+
     [JsonPropertyName("rings")]
     public List<SpanshRingOrBelt>? Rings { get; set; }
 

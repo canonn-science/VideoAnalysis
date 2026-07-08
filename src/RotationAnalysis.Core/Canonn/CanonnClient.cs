@@ -28,8 +28,16 @@ public sealed class CanonnClient : IDisposable
         var query = string.Join('&',
             $"entry.600905391={Uri.EscapeDataString(submission.CommanderName)}",
             $"entry.1130968439={Uri.EscapeDataString(submission.SystemName)}",
+            $"entry.472013560={Uri.EscapeDataString(submission.Id64.ToString(CultureInfo.InvariantCulture))}",
+            $"entry.1151578825={Uri.EscapeDataString(FormatNumber(submission.X))}",
+            $"entry.525275561={Uri.EscapeDataString(FormatNumber(submission.Y))}",
+            $"entry.459250128={Uri.EscapeDataString(FormatNumber(submission.Z))}",
             $"entry.500354492={Uri.EscapeDataString(submission.BodyName)}",
+            $"entry.352807454={Uri.EscapeDataString(submission.BodyType ?? string.Empty)}",
+            $"entry.311252220={Uri.EscapeDataString(FormatNumber(submission.BodyRadiusKm))}",
+            $"entry.1550981279={Uri.EscapeDataString(FormatNumber(submission.BodyMassEarthMasses))}",
             $"entry.1805555353={Uri.EscapeDataString(submission.RingName)}",
+            $"entry.1045222536={Uri.EscapeDataString(submission.RingType ?? string.Empty)}",
             $"entry.1741677072={Uri.EscapeDataString(FormatNumber(submission.InnerRadiusKm))}",
             $"entry.1379006716={Uri.EscapeDataString(FormatNumber(submission.OuterRadiusKm))}",
             $"entry.1306863839={Uri.EscapeDataString(FormatNumber(submission.WidthKm))}",
@@ -49,6 +57,8 @@ public sealed class CanonnClient : IDisposable
     }
 
     private static string FormatNumber(double value) => value.ToString(CultureInfo.InvariantCulture);
+
+    private static string FormatNumber(double? value) => value is double v ? FormatNumber(v) : string.Empty;
 
     /// <summary>Looks up columns by header name rather than position, so the parser keeps working
     /// even if Canonn reorders or adds columns to the published sheet.</summary>

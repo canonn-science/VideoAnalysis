@@ -77,7 +77,7 @@ When processing finishes, a dialog shows: system/body/ring name, estimated vs. o
 
 ## Measurement log
 
-Saved measurements are appended as a row to a local CSV file with these columns (`MeasurementRecord` keeps them in this order); reading tolerates older files missing trailing columns:
+Saved measurements are appended as a row to a local CSV file with these columns (`MeasurementRecord` keeps them in this order); reading tolerates older files missing columns:
 
 ```
 Timestamp
@@ -87,7 +87,11 @@ x
 y
 z
 Body Name
+Body Type
+Body Mass
 Ring Name
+Ring Type
+Ring Mass
 innerRadius
 outerRadius
 Width
@@ -97,7 +101,18 @@ video filename
 submitted
 ```
 
+Body Type/Ring Type are the subType/type strings from Spansh; Body Mass is in Earth masses; Ring
+Mass is passed through as reported by Spansh. All four are blank for rows written before these
+columns existed.
+
 A "Measurement History" tab lists the logged rows and has a button to reveal the CSV file on disk.
+
+### Migrating older CSV files
+
+`MeasurementCsvStore` checks the file's header on construction. If it predates the "Body Type"
+column, every row is read (missing columns default to blank/null, same as normal tolerant
+reading) and the whole file is rewritten with the current header - so the upgrade happens once,
+transparently, the first time the app runs against an old CSV, rather than a version at a time.
 
 ## Commander name
 
@@ -122,8 +137,16 @@ to entry ids:
 | --------------------------- | ----------------------- |
 | Commander Name              | `entry.600905391`       |
 | System Name                 | `entry.1130968439`      |
+| id64                        | `entry.472013560`       |
+| x                           | `entry.1151578825`      |
+| y                           | `entry.525275561`       |
+| z                           | `entry.459250128`       |
 | Body Name                   | `entry.500354492`       |
+| Body Type                   | `entry.352807454`       |
+| Body Radius (km)            | `entry.311252220`       |
+| Body Mass (Earth masses)    | `entry.1550981279`      |
 | Ring Name                   | `entry.1805555353`      |
+| Ring Type                   | `entry.1045222536`      |
 | Inner Radius (km)           | `entry.1741677072`      |
 | Outer Radius (km)           | `entry.1379006716`      |
 | Width (km)                  | `entry.1306863839`      |
@@ -131,7 +154,9 @@ to entry ids:
 | Observed Period (seconds)   | `entry.1394317518`      |
 
 Radii/width are converted from the meters stored internally to kilometers; periods are already in
-seconds.
+seconds. Body Radius/Type/Mass are only available when submitting live from the results dialog
+(sourced from the Spansh dump via `RingInfo`) - resubmitting an older history row that predates
+these columns sends an empty Body Radius, since it isn't persisted to the CSV.
 
 ### Detecting already-submitted measurements
 

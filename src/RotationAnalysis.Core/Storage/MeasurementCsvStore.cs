@@ -14,6 +14,34 @@ public sealed class MeasurementCsvStore
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "RotationAnalysisLab",
             "measurements.csv");
+
+        MigrateIfNeeded();
+    }
+
+    /// <summary>Transparently upgrades a CSV written by an older version of the app (missing the
+    /// "Body Type"/"Body Mass"/"Ring Type"/"Ring Mass" columns) to the current schema, by reading
+    /// every row - which already tolerates missing columns via <see cref="ReadAll"/> - and
+    /// rewriting the file with the current header. New columns come out empty for pre-existing
+    /// rows, which is exactly what <see cref="SaveAll"/> does for a null/default field.</summary>
+    private void MigrateIfNeeded()
+    {
+        if (!File.Exists(CsvPath))
+        {
+            return;
+        }
+
+        string? headerLine;
+        using (var reader = new StreamReader(CsvPath))
+        {
+            headerLine = reader.ReadLine();
+        }
+
+        if (headerLine is null || headerLine.Contains("Body Type", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        SaveAll(ReadAll());
     }
 
     /// <summary>Reads every existing row and rewrites the file with the new one appended.
