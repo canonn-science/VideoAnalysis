@@ -172,15 +172,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row.Ring.EstimatedPeriodSeconds) { Owner = this };
+        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row.Ring.EstimatedPeriodSeconds, row.Ring.RingName) { Owner = this };
         var completed = processingWindow.ShowDialog();
 
         if (completed == true && processingWindow.Result is not null)
         {
-            var resultsWindow = new ResultsWindow(_viewModel, row, processingWindow.Result, videoPath) { Owner = this };
+            var finalVideoPath = processingWindow.FinalVideoPath;
+            var resultsWindow = new ResultsWindow(_viewModel, row, processingWindow.Result, finalVideoPath) { Owner = this };
             if (resultsWindow.ShowDialog() == true)
             {
-                _viewModel.SaveMeasurement(row, processingWindow.Result, videoPath, resultsWindow.SubmittedToCanonn);
+                _viewModel.SaveMeasurement(row, processingWindow.Result, finalVideoPath, resultsWindow.SubmittedToCanonn);
             }
         }
         else if (processingWindow.FailureMessage is not null)

@@ -59,6 +59,18 @@ The upload prompt shows an example reference shot and these instructions, and ac
 
 If no stars can be tracked at all, or no chunk produces a reliable fit, the user gets an explanatory error asking for a longer or clearer recording instead of a result.
 
+### Renaming to match the ring
+
+If the selected video's filename doesn't already match its ring (`{ringName}{ext}`, case-insensitive,
+original extension preserved), a modal dialog offers to rename it as soon as analysis starts - it
+doesn't wait for analysis to finish, and analysis keeps running in the background while the dialog
+is up. If `{ringName}{ext}` is already taken by another file, the suggestion bumps to
+`{ringName}_v2{ext}`, `{ringName}_v3{ext}`, etc. (`VideoFileNamer`).
+
+Dismissing the dialog leaves the file where it is. Accepting it defers the actual rename until
+analysis completes and the file is no longer open for reading, then every downstream reference
+(results dialog, saved CSV row) uses the new path.
+
 ## Results dialog
 
 When processing finishes, a dialog shows: system/body/ring name, estimated vs. observed period, percent difference between them, confidence percentage, median roll angle (how far off level the horizon tracked), and how many of the available recording segments were usable. Nothing is written to disk until the user clicks **Save to History** — cancelling discards the result.
