@@ -74,4 +74,19 @@ public sealed class MeasurementRecord
     /// measurement can also have been submitted from another machine or app version.</summary>
     [Name("submitted")]
     public bool Submitted { get; set; }
+
+    /// <summary>Full-rotation period measured from start/end frame re-alignment, in seconds. Null
+    /// when the video wasn't long enough to attempt the measurement, or it didn't converge.</summary>
+    [Name("measured_period_s")]
+    public double? MeasuredPeriodSeconds { get; set; }
+
+    [Name("measured_period_err_s")]
+    public double? MeasuredPeriodErrSeconds { get; set; }
+
+    [Name("n_reference_samples")]
+    public int? NReferenceSamples { get; set; }
+
+    /// <summary>(observed rotation - measured_period_s) / measured_period_s * 100.</summary>
+    [Name("rate_vs_measured_pct_diff")]
+    public double? RateVsMeasuredPctDiff { get; set; }
 }

@@ -12,8 +12,7 @@ namespace RotationAnalysis.App.Views;
 public partial class VideoProcessingWindow : Window
 {
     private readonly MainViewModel _viewModel;
-    private readonly string _ringName;
-    private readonly double? _seedPeriodSeconds;
+    private readonly RingRowViewModel _row;
     private readonly Task<QuickVideoMetadata> _quickMetadataTask;
     private readonly CancellationTokenSource _cts = new();
     private bool _realProgressReceived;
@@ -29,14 +28,13 @@ public partial class VideoProcessingWindow : Window
     private Task<HorizontalVideoAnalysisResult>? _analysisTask;
     private string? _pendingRenamePath;
 
-    public VideoProcessingWindow(MainViewModel viewModel, string videoPath, double? seedPeriodSeconds, Task<QuickVideoMetadata> quickMetadataTask, string ringName)
+    public VideoProcessingWindow(MainViewModel viewModel, string videoPath, RingRowViewModel row, Task<QuickVideoMetadata> quickMetadataTask)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _videoPath = videoPath;
-        _seedPeriodSeconds = seedPeriodSeconds;
+        _row = row;
         _quickMetadataTask = quickMetadataTask;
-        _ringName = ringName;
         Loaded += VideoProcessingWindow_Loaded;
     }
 
@@ -78,9 +76,9 @@ public partial class VideoProcessingWindow : Window
             }
         });
 
-        _analysisTask = _viewModel.AnalyzeVideoAsync(_videoPath, _seedPeriodSeconds, progress, _cts.Token);
+        _analysisTask = _viewModel.AnalyzeVideoAsync(_row, _videoPath, progress, _cts.Token);
 
-        if (VideoFileNamer.MatchesRingName(_videoPath, _ringName))
+        if (VideoFileNamer.MatchesRingName(_videoPath, _row.Ring.RingName))
         {
             _ = FinishAnalysisAsync();
         }
@@ -97,7 +95,7 @@ public partial class VideoProcessingWindow : Window
     {
         ContentRendered -= VideoProcessingWindow_ContentRendered;
 
-        var suggestedPath = VideoFileNamer.GetNextAvailableFileName(_videoPath, _ringName);
+        var suggestedPath = VideoFileNamer.GetNextAvailableFileName(_videoPath, _row.Ring.RingName);
         var renamePrompt = new VideoRenamePromptWindow(Path.GetFileName(suggestedPath)) { Owner = this };
         if (renamePrompt.ShowDialog() == true)
         {
@@ -118,6 +116,13 @@ public partial class VideoProcessingWindow : Window
                 try
                 {
                     File.Move(_videoPath, _pendingRenamePath);
+
+                    var calibrationLogPath = RotationCalibrationLogWriter.PathFor(_videoPath);
+                    if (File.Exists(calibrationLogPath))
+                    {
+                        File.Move(calibrationLogPath, RotationCalibrationLogWriter.PathFor(_pendingRenamePath));
+                    }
+
                     _videoPath = _pendingRenamePath;
                 }
                 catch (Exception ex)

@@ -170,8 +170,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public Task<HorizontalVideoAnalysisResult> AnalyzeVideoAsync(string videoPath, double? seedPeriodSeconds, IProgress<VideoAnalysisProgress> progress, CancellationToken ct)
-        => HorizontalVideoAnalyzer.AnalyzeAsync(videoPath, seedPeriodSeconds, progress, ct);
+    public Task<HorizontalVideoAnalysisResult> AnalyzeVideoAsync(RingRowViewModel row, string videoPath, IProgress<VideoAnalysisProgress> progress, CancellationToken ct)
+        => HorizontalVideoAnalyzer.AnalyzeAsync(
+            videoPath, row.Ring.EstimatedPeriodSeconds, progress, ct, row.Ring.SystemName, row.Ring.RingName);
 
     public void SaveMeasurement(RingRowViewModel row, HorizontalVideoAnalysisResult result, string videoPath, bool submittedToCanonn = false)
     {
@@ -197,6 +198,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             ObservedRotationSeconds = result.ObservedPeriodSeconds,
             VideoFilename = Path.GetFileName(videoPath),
             Submitted = submittedToCanonn,
+            MeasuredPeriodSeconds = result.MeasuredPeriodSeconds,
+            MeasuredPeriodErrSeconds = result.MeasuredPeriodErrSeconds,
+            NReferenceSamples = result.NReferenceSamples,
+            RateVsMeasuredPctDiff = result.RateVsMeasuredPctDiff,
         });
         Measurements.Refresh();
     }

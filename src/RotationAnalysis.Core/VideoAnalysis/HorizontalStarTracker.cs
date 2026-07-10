@@ -12,6 +12,7 @@ public sealed class HorizontalTrackingResult
     public required List<HorizontalChunk> Chunks { get; init; }
     public required double Fps { get; init; }
     public required Size FrameSize { get; init; }
+    public required double DurationSeconds { get; init; }
 }
 
 /// <summary>
@@ -26,6 +27,17 @@ public sealed class HorizontalTrackingResult
 /// </summary>
 public static class HorizontalStarTracker
 {
+    /// <summary>Below this per-step pixel displacement, motion is too close to tracking noise to
+    /// trust - the fix is the same whether it's genuinely slow rotation or just noise: take a
+    /// bigger step so the next comparison has a clearer signal.</summary>
+    private const double MinPixelShiftPerStep = 1.0;
+
+    /// <summary>Ceiling on how many real frames to skip between optical-flow samples. Rotation
+    /// speed is constant for a given ring (Elite's rings turn as a rigid disk), so once a stride
+    /// comfortably clears the noise floor there's no reason to keep growing it - this just bounds
+    /// the worst case (e.g. a near-stationary scene) rather than being a target to reach.</summary>
+    private const int MaxFrameStride = 8;
+
     public static HorizontalTrackingResult Track(
         string videoPath,
         IProgress<VideoAnalysisProgress>? progress = null,
@@ -37,8 +49,7 @@ public static class HorizontalStarTracker
         int winSize = 15,
         int maxLevel = 3,
         float errorThreshold = 15f,
-        double horizonFraction = 0.45,
-        double? estimatedPeriodSeconds = null)
+        double horizonFraction = 0.45)
     {
         using var capture = new VideoCapture(videoPath);
         if (!capture.IsOpened())
@@ -50,12 +61,10 @@ public static class HorizontalStarTracker
         var frameSize = new Size(capture.FrameWidth, capture.FrameHeight);
         int estimatedTotal = capture.FrameCount > 0 ? capture.FrameCount : 1;
         int chunkFrames = Math.Max(30, (int)Math.Round(chunkSeconds * fps));
-        int frameStride = ComputeFrameStride(fps, estimatedPeriodSeconds);
 
-        string strideNote = frameStride > 1 ? $" · sampling every {frameStride} frames (long estimated period)" : "";
         progress?.Report(new VideoAnalysisProgress(
             VideoAnalysisStage.Opening, 5,
-            $"{frameSize.Width}×{frameSize.Height} · {fps:0.##} fps · {FormatDuration(estimatedTotal / fps)}{strideNote}"));
+            $"{frameSize.Width}×{frameSize.Height} · {fps:0.##} fps · {FormatDuration(estimatedTotal / fps)}"));
 
         int horizonCutoff = (int)(frameSize.Height * horizonFraction);
         using var mask = new Mat(frameSize, MatType.CV_8UC1, Scalar.All(0));
@@ -63,6 +72,18 @@ public static class HorizontalStarTracker
         {
             roi.SetTo(Scalar.All(255));
         }
+
+        // Adapts from observed motion rather than trusting an upfront period estimate (which can
+        // itself be off by 5-15%, per the calibration data) - doubled whenever a step's tracked
+        // displacement is too small to trust, carried forward across chunk boundaries once it's
+        // found a good cadence for this ring's actual speed. Pre-warmed here with a short throwaway
+        // pass (rather than starting chunk 1 cold at stride=1) so chunk 1's own tracks don't pay the
+        // cost of the ramp-up: at a small stride, a track has to survive many more individual
+        // optical-flow hops to last the same 24-second chunk, and each hop is one more chance for it
+        // to die - denser sampling doesn't add angular sweep, only more opportunities to lose points.
+        int frameStride = ProbeInitialStride(capture, mask, maxCorners, qualityLevel, minDistance, winSize, maxLevel, errorThreshold, ct);
+        capture.Set(VideoCaptureProperties.PosFrames, 0);
+        int framesToSkip = 0;
 
         var chunks = new List<HorizontalChunk>();
         List<StarTrack>? currentTracks = null;
@@ -79,8 +100,9 @@ public static class HorizontalStarTracker
             ct.ThrowIfCancellationRequested();
             realFrameIndex++;
 
-            if (realFrameIndex % frameStride != 0)
+            if (framesToSkip > 0)
             {
+                framesToSkip--;
                 continue;
             }
 
@@ -112,6 +134,7 @@ public static class HorizontalStarTracker
                 prevGray?.Dispose();
                 prevGray = gray0;
                 posInChunk = frameStride;
+                framesToSkip = frameStride - 1;
             }
             else
             {
@@ -127,6 +150,7 @@ public static class HorizontalStarTracker
                         winSize: new Size(winSize, winSize),
                         maxLevel: maxLevel);
 
+                    var stepShifts = new List<double>();
                     for (int i = 0; i < currentPts.Length; i++)
                     {
                         if (!alive![i])
@@ -138,17 +162,32 @@ public static class HorizontalStarTracker
                             alive[i] = false;
                             continue;
                         }
+                        double dx = nextPts[i].X - currentPts[i].X;
+                        double dy = nextPts[i].Y - currentPts[i].Y;
+                        stepShifts.Add(Math.Sqrt(dx * dx + dy * dy));
+
                         currentTracks![i].FrameIndices.Add(posInChunk);
                         currentTracks[i].Xs.Add(nextPts[i].X);
                         currentTracks[i].Ys.Add(nextPts[i].Y);
                     }
                     currentPts = nextPts;
+
+                    if (stepShifts.Count > 0 && frameStride < MaxFrameStride)
+                    {
+                        stepShifts.Sort();
+                        double medianShift = stepShifts[stepShifts.Count / 2];
+                        if (medianShift < MinPixelShiftPerStep)
+                        {
+                            frameStride = Math.Min(frameStride * 2, MaxFrameStride);
+                        }
+                    }
                 }
 
                 prevGray?.Dispose();
                 prevGray = gray;
 
                 posInChunk += frameStride;
+                framesToSkip = frameStride - 1;
                 if (posInChunk >= chunkFrames)
                 {
                     posInChunk = 0;
@@ -161,8 +200,9 @@ public static class HorizontalStarTracker
             {
                 Cv2.ImEncode(".jpg", frame, out previewBytes);
             }
+            string strideNote = frameStride > 1 ? $" · sampling every {frameStride} frames" : "";
             progress?.Report(new VideoAnalysisProgress(
-                VideoAnalysisStage.Tracking, percent, $"Tracking frame {realFrameIndex + 1} of {estimatedTotal}",
+                VideoAnalysisStage.Tracking, percent, $"Tracking frame {realFrameIndex + 1} of {estimatedTotal}{strideNote}",
                 FramesProcessed: realFrameIndex + 1, TotalFrames: estimatedTotal, PreviewImageBytes: previewBytes));
         }
 
@@ -181,31 +221,111 @@ public static class HorizontalStarTracker
             throw new InvalidOperationException("Video has no frames.");
         }
 
-        return new HorizontalTrackingResult { Chunks = chunks, Fps = fps, FrameSize = frameSize };
+        return new HorizontalTrackingResult
+        {
+            Chunks = chunks,
+            Fps = fps,
+            FrameSize = frameSize,
+            DurationSeconds = estimatedTotal / fps,
+        };
     }
 
     /// <summary>
-    /// Picks how many real frames to advance between optical-flow samples. For long estimated
-    /// periods the apparent per-frame star motion is tiny, so consecutive frames add tracking cost
-    /// without adding information; this keeps the pixel shift between sampled frames near a fixed
-    /// target instead of always processing every single frame. Falls back to 1 (no skipping) when
-    /// there's no usable estimate. The focal length used here is just a rough stand-in for the
-    /// solver's later fitted value - it only needs to be in the right ballpark to size the stride.
+    /// Throwaway pass over the first handful of frames to find a working starting stride before
+    /// chunk 1's real tracking begins, so chunk 1 doesn't have to warm up on its own time (see the
+    /// comment above its call site). Ramps the exact same way the main loop does - double whenever
+    /// a step's median displacement is under the noise floor - and stops as soon as one step clears
+    /// it (or the cap), discarding everything it tracked. Bounded to a small number of real frames
+    /// so a pathological near-stationary scene can't stall startup.
     /// </summary>
-    private static int ComputeFrameStride(double fps, double? estimatedPeriodSeconds)
+    private static int ProbeInitialStride(
+        VideoCapture capture, Mat mask, int maxCorners, double qualityLevel, double minDistance,
+        int winSize, int maxLevel, float errorThreshold, CancellationToken ct)
     {
-        const double approxFocalLengthPx = HorizontalRotationSolver.DefaultSeedFocalLengthPx;
-        const double targetPixelShiftPerStep = 4.0;
-        const int maxFrameStride = 12;
+        const int maxProbeFrames = 64;
 
-        if (estimatedPeriodSeconds is not double period || period <= 0 || double.IsNaN(period) || double.IsInfinity(period))
+        using var gray0 = new Mat();
+        using (var frame0 = new Mat())
+        {
+            if (!capture.Read(frame0) || frame0.Empty())
+            {
+                return 1;
+            }
+            Cv2.CvtColor(frame0, gray0, ColorConversionCodes.BGR2GRAY);
+        }
+
+        var pts = Cv2.GoodFeaturesToTrack(gray0, maxCorners, qualityLevel, minDistance, mask: mask, blockSize: 3, useHarrisDetector: false, k: 0.04);
+        if (pts.Length == 0)
         {
             return 1;
         }
 
-        double omega = 2 * Math.PI / period;
-        double idealStride = targetPixelShiftPerStep * fps / (approxFocalLengthPx * omega);
-        return (int)Math.Clamp(Math.Round(idealStride), 1, maxFrameStride);
+        int frameStride = 1;
+        Mat prevGray = gray0.Clone();
+        int framesConsumed = 0;
+
+        try
+        {
+            while (framesConsumed < maxProbeFrames)
+            {
+                for (int skip = 0; skip < frameStride - 1 && capture.Grab(); skip++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    framesConsumed++;
+                }
+
+                using var frame = new Mat();
+                if (!capture.Read(frame) || frame.Empty())
+                {
+                    break;
+                }
+                framesConsumed++;
+                ct.ThrowIfCancellationRequested();
+
+                using var gray = new Mat();
+                Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
+
+                Point2f[] nextPts = Array.Empty<Point2f>();
+                Cv2.CalcOpticalFlowPyrLK(
+                    prevGray, gray, pts, ref nextPts, out var status, out var err,
+                    winSize: new Size(winSize, winSize), maxLevel: maxLevel);
+
+                var shifts = new List<double>();
+                for (int i = 0; i < pts.Length; i++)
+                {
+                    if (status[i] == 0 || err[i] > errorThreshold)
+                    {
+                        continue;
+                    }
+                    double dx = nextPts[i].X - pts[i].X;
+                    double dy = nextPts[i].Y - pts[i].Y;
+                    shifts.Add(Math.Sqrt(dx * dx + dy * dy));
+                }
+
+                prevGray.Dispose();
+                prevGray = gray.Clone();
+                pts = nextPts;
+
+                if (shifts.Count == 0)
+                {
+                    break; // nothing left to measure - go with whatever stride we'd reached
+                }
+
+                shifts.Sort();
+                double medianShift = shifts[shifts.Count / 2];
+                if (medianShift >= MinPixelShiftPerStep || frameStride >= MaxFrameStride)
+                {
+                    break;
+                }
+                frameStride = Math.Min(frameStride * 2, MaxFrameStride);
+            }
+        }
+        finally
+        {
+            prevGray.Dispose();
+        }
+
+        return frameStride;
     }
 
     private static string FormatDuration(double totalSeconds)

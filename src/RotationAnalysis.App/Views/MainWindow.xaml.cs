@@ -177,7 +177,7 @@ public partial class MainWindow : Window
         // shell round-trip overlaps window construction/layout instead of starting after it.
         var quickMetadataTask = Task.Run(() => QuickVideoMetadataReader.Read(videoPath));
 
-        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row.Ring.EstimatedPeriodSeconds, quickMetadataTask, row.Ring.RingName) { Owner = this };
+        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row, quickMetadataTask) { Owner = this };
         var completed = processingWindow.ShowDialog();
 
         if (completed == true && processingWindow.Result is not null)

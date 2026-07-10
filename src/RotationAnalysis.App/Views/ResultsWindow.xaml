@@ -4,10 +4,11 @@
         xmlns:ui="http://schemas.modernwpf.com/2019"
         ui:WindowHelper.UseModernWindowStyle="True"
         Icon="/Assets/canonn.ico"
-        Title="Rotation Analysis Results" Height="460" Width="640"
+        Title="Rotation Analysis Results" Height="460" Width="720"
         WindowStartupLocation="CenterOwner" SizeToContent="Height">
     <Grid Margin="24">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -42,7 +43,49 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="2" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+        <!-- Full-rotation match evidence: the two most confident accepted reference/matched-frame
+             pairs, reference frames on top and their matched frames underneath - visual proof the
+             star field actually re-aligned, not just numbers. Collapsed when the alignment
+             measurement didn't run or produced no accepted samples. -->
+        <Border Grid.Row="2" x:Name="EvidencePanel" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                BorderThickness="1" Padding="16" Margin="0,12,0,0" Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock Text="Full-rotation match evidence" FontWeight="SemiBold" Margin="0,0,0,10"
+                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="6"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" x:Name="Preview1RefCaption" HorizontalAlignment="Center"
+                               FontSize="11" Foreground="{StaticResource CanonnTextBrush}" Margin="0,0,0,4"/>
+                    <TextBlock Grid.Row="0" Grid.Column="2" x:Name="Preview2RefCaption" HorizontalAlignment="Center"
+                               FontSize="11" Foreground="{StaticResource CanonnTextBrush}" Margin="0,0,0,4"/>
+
+                    <Image Grid.Row="1" Grid.Column="0" x:Name="Preview1RefImage" Stretch="Uniform" MaxHeight="130"/>
+                    <Image Grid.Row="1" Grid.Column="2" x:Name="Preview2RefImage" Stretch="Uniform" MaxHeight="130"/>
+
+                    <Image Grid.Row="3" Grid.Column="0" x:Name="Preview1MatchImage" Stretch="Uniform" MaxHeight="130"/>
+                    <Image Grid.Row="3" Grid.Column="2" x:Name="Preview2MatchImage" Stretch="Uniform" MaxHeight="130"/>
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="Preview1MatchCaption" HorizontalAlignment="Center"
+                               FontSize="11" Foreground="{StaticResource CanonnTextBrush}" Margin="0,4,0,0"/>
+                    <TextBlock Grid.Row="4" Grid.Column="2" x:Name="Preview2MatchCaption" HorizontalAlignment="Center"
+                               FontSize="11" Foreground="{StaticResource CanonnTextBrush}" Margin="0,4,0,0"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="3" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
                 BorderThickness="1" Padding="16" Margin="0,12,0,16">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -50,6 +93,10 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -73,12 +120,24 @@
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Measured camera tilt:" Margin="0,0,12,6" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
                 <TextBlock Grid.Row="4" Grid.Column="1" x:Name="RollText" Margin="0,0,0,6" Foreground="{StaticResource CanonnTextBrush}"/>
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Segments used:" Margin="0,0,12,0" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
-                <TextBlock Grid.Row="5" Grid.Column="1" x:Name="TrackingText" Margin="0,0,0,0" Foreground="{StaticResource CanonnTextBrush}"/>
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Segments used:" Margin="0,0,12,6" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                <TextBlock Grid.Row="5" Grid.Column="1" x:Name="TrackingText" Margin="0,0,0,6" Foreground="{StaticResource CanonnTextBrush}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" x:Name="MeasuredLabelText" Text="Measured period (full rotation):" Margin="0,0,12,6" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                <TextBlock Grid.Row="6" Grid.Column="1" x:Name="MeasuredText" Margin="0,0,0,6" Foreground="{StaticResource CanonnTextBrush}"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" x:Name="RateVsMeasuredLabelText" Text="Rate vs. measured difference:" Margin="0,0,12,6" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                <TextBlock Grid.Row="7" Grid.Column="1" x:Name="RateVsMeasuredText" Margin="0,0,0,6" Foreground="{StaticResource CanonnTextBrush}"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2" x:Name="ConsistencyWarningText" Foreground="#FF6B6B" TextWrapping="Wrap"
+                           Text="Rate-based and full-rotation measurements disagree - check FOV / capture settings."/>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2" x:Name="AlignmentStatusText" Foreground="{StaticResource CanonnTextBrush}"
+                           FontStyle="Italic" TextWrapping="Wrap"/>
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <TextBlock x:Name="SubmitErrorText" Foreground="#FF6B6B" VerticalAlignment="Center"
                        Margin="0,0,12,0" TextWrapping="Wrap" MaxWidth="220"/>
             <Button x:Name="SendToCanonnButton" Content="Send to Canonn" Padding="16,8" Margin="0,0,8,0"

@@ -52,12 +52,57 @@ The upload prompt shows an example reference shot and these instructions, and ac
 `HorizontalVideoAnalyzer` runs the pipeline off the UI thread:
 
 0. **Open.** `HorizontalStarTracker` opens the video and reports its resolution, frame rate, and duration back to the UI immediately (shown in the processing window and kept visible for the rest of the run).
-1. **Track.** The video is split into chunks and stars are tracked frame-to-frame within each chunk. For long estimated periods, per-frame motion is tiny, so the tracker skips real frames between optical-flow samples (up to a 12x stride) rather than processing every one — the stride is sized from the ring's Kepler estimate so the pixel shift between sampled frames stays roughly constant regardless of period length.
+1. **Track.** The video is split into chunks and stars are tracked frame-to-frame within each chunk. For long estimated periods, per-frame motion is tiny, so the tracker skips real frames between optical-flow samples (up to an 8x stride) rather than processing every one — the stride is sized from the ring's Kepler estimate so the pixel shift between sampled frames stays roughly constant (targeting ~2px/step) regardless of period length. Rings under ~20 minutes stay well below the cap and sample fairly densely; only genuinely slow rotations hit the 8x ceiling.
 2. **Solve per chunk.** Each chunk is fit independently by `HorizontalRotationSolver` against a fixed vertical roll axis (not a fitted in-frame center, since the horizon framing keeps the axis effectively fixed). Each chunk's solved period seeds the next chunk's solve. Chunks with fewer than 20 usable tracks, or a non-finite period, are discarded.
-3. **Combine.** The observed period is the median across all chunks that produced a usable fit.
+3. **Combine.** The raw fit is the median across all chunks that produced a usable fit. The reported observed period is that median times `HorizontalVideoAnalyzer.RateBasedBiasCorrectionFactor` - a one-sample calibration correction (see below), applied to every rate-based result, not just eligible videos.
 4. **Confidence.** A heuristic, not a statistical guarantee — there's no ground truth at runtime. With 2+ chunks, it's based on the coefficient of variation across chunks' periods (they're independent measurements of one true rate, since Elite's rings rotate as a rigid disk). With only one usable chunk, it's based on agreement among that chunk's own tracked stars. Either way, a 5% relative spread maps to 0% confidence, scaling up to 100% at zero spread.
 
 If no stars can be tracked at all, or no chunk produces a reliable fit, the user gets an explanatory error asking for a longer or clearer recording instead of a result.
+
+### Full-rotation alignment measurement
+
+When a recording is long enough to contain a full rotation (duration ≥ 1.2× the estimated period -
+preferring the rate-based observed period above, falling back to the Kepler estimate if the rate
+measurement has low confidence), `HorizontalVideoAnalyzer` also measures the period directly as a
+*timing* event: the instant the star field re-aligns with reference frames from the start of the
+video. This is independent of the rate method's FOV/focal-length calibration, so it's both a
+better answer for eligible videos and calibration data for the rate-based method.
+
+`FullRotationAligner` captures 5 reference frames (configurable) spread across the first ~10% of
+the estimated period, then for each one searches a window around one estimated-period later for
+where a masked-star-field phase correlation (`Cv2.PhaseCorrelate`, letterbox/below-horizon rows
+excluded) against the reference crosses zero offset. `FullRotationMath.FitZeroCrossing` interpolates
+that crossing to sub-frame precision from a local linear fit rather than just picking the closest
+frame, gated on correlation strength, fit R², and not landing at the search window's edge (which
+retries once with a doubled window, then gives up with a "video appears shorter than one rotation"
+style reason). All timing comes from the container's actual frame timestamps
+(`VideoCaptureProperties.PosMsec`), not frame index/nominal fps. With ≥3 accepted samples, the
+median is the measured period and the MAD-based spread is its uncertainty; otherwise the alignment
+measurement is reported as failed and the rate-based result is used alone, exactly as before.
+
+Rather than swap the rate-based result out for the measurement on the videos where both happen to
+run, the measurement is used once to correct the rate-based method itself:
+`RateBasedBiasCorrectionFactor` is a flat multiplier derived from the one full-rotation ground-truth
+sample collected so far (rate-based fit 530.9561807430355s vs. measured 505.89471843069344s for
+Eorl Scrua AA-A h670 2 A Ring - the rate method overestimated by ~4.95%), applied to *every*
+rate-based result, including videos with no full-rotation measurement at all. This is what
+"observed rotation" reports everywhere (results dialog, CSV, Canonn submission) - always the
+rate-based method's own output, just bias-corrected, so storage stays consistent regardless of
+whether alignment ran on that particular video. The raw, uncorrected median is what's logged to the
+calibration file and what "rate vs. measured" and the consistency warning compare against the
+measurement - future eligible videos on different rings show whether the correction still holds or
+the two drift apart again, which is the signal for refining it (or replacing a single flat factor
+with something that depends on angular sweep/star count/etc.) as more calibration data accumulates.
+
+Every eligible video (success or failure) gets a `<video filename>.calibration.json` file under
+`%LocalAppData%\RotationAnalysisLab\calibration\` (`RotationCalibrationLog`/`RotationCalibrationLogWriter`)
+recording video/timing metadata, the rate-based fit internals, every reference sample's accept/reject
+detail, and the aggregate - a calibration dataset for later fitting the rate-based method's error
+model against this ground truth. It's keyed by filename rather than kept next to the video itself,
+since the video can live anywhere (a large removable drive, a temp folder that gets cleaned up),
+but the calibration dataset should stay put alongside the app's other local data (`measurements.csv`,
+`settings.json`). Writing it is best-effort and never fails the actual measurement. If the video is
+renamed (see below), the corresponding file in the calibration folder is renamed too.
 
 ### Renaming to match the ring
 
@@ -73,7 +118,7 @@ analysis completes and the file is no longer open for reading, then every downst
 
 ## Results dialog
 
-When processing finishes, a dialog shows: system/body/ring name, estimated vs. observed period, percent difference between them, confidence percentage, median roll angle (how far off level the horizon tracked), and how many of the available recording segments were usable. Nothing is written to disk until the user clicks **Save to History** — cancelling discards the result.
+When processing finishes, a dialog shows: system/body/ring name, estimated vs. observed period (the bias-corrected rate-based result - see above), percent difference between them, confidence percentage, median roll angle (how far off level the horizon tracked), and how many of the available recording segments were usable. When the full-rotation alignment measurement above also succeeds, the dialog additionally shows the measured period with its uncertainty, the rate-vs-measured percent difference (corrected rate-based fit vs. the independent measurement, so you can see whether they still agree or have drifted apart for this ring), and (if they disagree by more than ~3× their combined uncertainty) a warning that the pipeline/capture settings may need checking rather than reflecting real physics. If the alignment measurement didn't run (video too short) or ran but didn't converge, a small note explains which case it was and, for the latter, why. Nothing is written to disk until the user clicks **Save to History** — cancelling discards the result.
 
 ## Measurement log
 
@@ -99,7 +144,14 @@ estimated rotation
 observed rotation
 video filename
 submitted
+measured_period_s
+measured_period_err_s
+n_reference_samples
+rate_vs_measured_pct_diff
 ```
+
+The last four columns come from the full-rotation alignment measurement above and are blank
+(null) for videos that weren't eligible for it, or where the measurement didn't converge.
 
 Body Type/Ring Type are the subType/type strings from Spansh; Body Mass is in Earth masses; Ring
 Mass is passed through as reported by Spansh. All four are blank for rows written before these

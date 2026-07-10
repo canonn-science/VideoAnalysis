@@ -71,4 +71,50 @@ public class MeasurementCsvStoreTests : IDisposable
         Assert.False(File.Exists(CsvPath));
         Assert.Empty(store.ReadAll());
     }
+
+    [Fact]
+    public void AppendThenReadAll_RoundTripsFullRotationColumns()
+    {
+        var store = new MeasurementCsvStore(CsvPath);
+        store.Append(new MeasurementRecord
+        {
+            Timestamp = DateTime.UtcNow,
+            SystemName = "Test System",
+            BodyName = "Test Body",
+            RingName = "Test Ring",
+            InnerRadius = 100000,
+            OuterRadius = 180000,
+            Width = 80000,
+            EstimatedRotationSeconds = 1000,
+            ObservedRotationSeconds = 1050,
+            VideoFilename = "test.mp4",
+            MeasuredPeriodSeconds = 1042.5,
+            MeasuredPeriodErrSeconds = 0.8,
+            NReferenceSamples = 4,
+            RateVsMeasuredPctDiff = 0.72,
+        });
+
+        var record = Assert.Single(store.ReadAll());
+        Assert.Equal(1042.5, record.MeasuredPeriodSeconds);
+        Assert.Equal(0.8, record.MeasuredPeriodErrSeconds);
+        Assert.Equal(4, record.NReferenceSamples);
+        Assert.Equal(0.72, record.RateVsMeasuredPctDiff);
+    }
+
+    [Fact]
+    public void ReadAll_TreatsMissingFullRotationColumns_AsNull()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(CsvPath,
+            "Timestamp,System Name,id64,x,y,z,Body Name,Body Type,Body Mass,Ring Name,Ring Type,Ring Mass,innerRadius,outerRadius,Width,estimated rotation,observed rotation,video filename,submitted\r\n" +
+            "2026-01-01T00:00:00Z,Test System,12345,1,2,3,Test Body,,,Test Ring,,,100000,180000,80000,1000,1050,test.mp4,True\r\n");
+
+        var store = new MeasurementCsvStore(CsvPath);
+        var record = Assert.Single(store.ReadAll());
+
+        Assert.Null(record.MeasuredPeriodSeconds);
+        Assert.Null(record.MeasuredPeriodErrSeconds);
+        Assert.Null(record.NReferenceSamples);
+        Assert.Null(record.RateVsMeasuredPctDiff);
+    }
 }
