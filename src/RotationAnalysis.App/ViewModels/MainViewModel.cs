@@ -33,6 +33,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _commanderName = _settingsStore.Load().CommanderName ?? DefaultCommanderName;
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
         Stations = new StationViewModel();
+        JetCone = new JetConeViewModel();
         _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
         _ = LoadSubmittedFromCanonnAsync();
     }
@@ -80,6 +81,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public MeasurementsViewModel Measurements { get; }
 
     public StationViewModel Stations { get; }
+
+    public JetConeViewModel JetCone { get; }
 
     public bool HasClaudeApiKey
     {
@@ -288,5 +291,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _spanshClient.Dispose();
         _canonnClient.Dispose();
         Stations.Dispose();
+        JetCone.Dispose();
     }
 }

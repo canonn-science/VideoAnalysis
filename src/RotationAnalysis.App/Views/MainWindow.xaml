@@ -282,11 +282,103 @@
                 </TabControl>
             </TabItem>
 
-            <TabItem Header="Jet Cone Length">
-                <Grid Margin="24">
-                    <TextBlock Text="Coming soon." FontSize="16" Foreground="{StaticResource CanonnTextMutedBrush}"
-                               HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                </Grid>
+            <TabItem Header="Jet Cone Length" DataContext="{Binding JetCone}">
+                <TabControl Margin="0,8,0,0">
+                    <TabItem Header="System">
+                        <Grid Margin="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ui:AutoSuggestBox x:Name="JetConeSystemSearchBox" Grid.Column="0"
+                                                   FontSize="16"
+                                                   PlaceholderText="Type at least 3 characters of a system name…"
+                                                   Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                   ItemsSource="{Binding Suggestions}"
+                                                   DisplayMemberPath="Name"
+                                                   TextMemberPath="Name"
+                                                   TextChanged="JetConeSystemSearchBox_TextChanged"
+                                                   QuerySubmitted="JetConeSystemSearchBox_QuerySubmitted"
+                                                   SuggestionChosen="JetConeSystemSearchBox_SuggestionChosen"/>
+                                <Button Grid.Column="1" Content="Submit" Margin="8,0,0,0" Padding="16,8"
+                                        FontSize="16" Background="{StaticResource CanonnAccentBrush}"
+                                        Foreground="White" Click="JetConeSubmitButton_Click"/>
+                            </Grid>
+
+                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
+
+                            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
+                                         Foreground="{StaticResource CanonnAccentBrush}"
+                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{StaticResource CanonnAccentBrush}"
+                                       Text="{Binding ResolvedSystemName, StringFormat='Neutron stars and white dwarfs in {0}'}"
+                                       Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
+
+                            <DataGrid Grid.Row="4" ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
+                                      IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
+                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
+                                      Background="{StaticResource CanonnSurface2Brush}"
+                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
+                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
+                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Type" Binding="{Binding BodyType}" Width="Auto"/>
+                                    <DataGridTemplateColumn Header="Video" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Measurement History" DataContext="{Binding Measurements}">
+                        <Grid Margin="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" Margin="0,0,8,0"/>
+                                <Button Content="Show File on Disk" Command="{Binding ShowOnDiskCommand}" Padding="12,6"
+                                        Background="{StaticResource CanonnAccentBrush}" Foreground="White"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding Records}" AutoGenerateColumns="False"
+                                      IsReadOnly="True" CanUserAddRows="False"
+                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
+                                      Background="{StaticResource CanonnSurface2Brush}"
+                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
+                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
+                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Distance" Binding="{Binding DistanceDisplay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Rotational Period" Binding="{Binding RotationalPeriodDisplay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Spectral Class" Binding="{Binding SpectralClassDisplay}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
             </TabItem>
 
             <TabItem Header="Long Exposure">

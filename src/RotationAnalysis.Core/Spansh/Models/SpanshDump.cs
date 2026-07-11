@@ -82,6 +82,55 @@ public sealed class SpanshBody
     [JsonPropertyName("orbitalInclination")]
     public double? OrbitalInclination { get; set; }
 
+    // The fields below are only used by Jet Cone Length (copied verbatim into jetlength.csv,
+    // matching S:\Canonn\NeutronJet\jetlength.csv's BODY_CSV_FIELDS list exactly) - Ring/Station
+    // Rotation don't touch them.
+    [JsonPropertyName("absoluteMagnitude")]
+    public double? AbsoluteMagnitude { get; set; }
+
+    [JsonPropertyName("age")]
+    public double? Age { get; set; }
+
+    [JsonPropertyName("argOfPeriapsis")]
+    public double? ArgOfPeriapsis { get; set; }
+
+    [JsonPropertyName("ascendingNode")]
+    public double? AscendingNode { get; set; }
+
+    [JsonPropertyName("axialTilt")]
+    public double? AxialTilt { get; set; }
+
+    [JsonPropertyName("distanceToArrival")]
+    public double? DistanceToArrival { get; set; }
+
+    [JsonPropertyName("luminosity")]
+    public string? Luminosity { get; set; }
+
+    [JsonPropertyName("mainStar")]
+    public bool? MainStar { get; set; }
+
+    [JsonPropertyName("meanAnomaly")]
+    public double? MeanAnomaly { get; set; }
+
+    [JsonPropertyName("orbitalEccentricity")]
+    public double? OrbitalEccentricity { get; set; }
+
+    [JsonPropertyName("orbitalPeriod")]
+    public double? OrbitalPeriod { get; set; }
+
+    [JsonPropertyName("semiMajorAxis")]
+    public double? SemiMajorAxis { get; set; }
+
+    [JsonPropertyName("spectralClass")]
+    public string? SpectralClass { get; set; }
+
+    /// <summary>Kelvin.</summary>
+    [JsonPropertyName("surfaceTemperature")]
+    public double? SurfaceTemperature { get; set; }
+
+    [JsonPropertyName("updateTime")]
+    public string? UpdateTime { get; set; }
+
     [JsonPropertyName("rings")]
     public List<SpanshRingOrBelt>? Rings { get; set; }
 

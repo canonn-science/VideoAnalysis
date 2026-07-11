@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly UpdateChecker _updateChecker = new();
     private CancellationTokenSource? _searchDebounceCts;
     private CancellationTokenSource? _stationSearchDebounceCts;
+    private CancellationTokenSource? _jetConeSearchDebounceCts;
 
     public MainWindow()
     {
@@ -28,6 +29,7 @@ public partial class MainWindow : Window
         _viewModel.VideoSelectionRequested += OnVideoSelectionRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
+        _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -296,5 +298,158 @@ public partial class MainWindow : Window
     {
         _viewModel.DeleteClaudeApiKey();
         UpdateClaudeApiKeyStatusText();
+    }
+
+    private async void JetConeSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        {
+            return;
+        }
+
+        _jetConeSearchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _jetConeSearchDebounceCts = cts;
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            await _viewModel.JetCone.RefreshSuggestionsAsync(sender.Text, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer keystroke
+        }
+    }
+
+    private async void JetConeSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        {
+            await _viewModel.JetCone.SubmitAsync(system);
+        }
+    }
+
+    private async void JetConeSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
+        await _viewModel.JetCone.SubmitAsync(chosen);
+    }
+
+    private async void JetConeSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.JetCone.SubmitAsync(null);
+    }
+
+    /// <summary>Local-OCR confidence (0-1) below which a configured Claude key is used
+    /// automatically instead of the local guess. HudDistanceReader's heuristic classifier
+    /// reliably scores well below this on real footage - see its class doc comment - so in
+    /// practice this means Claude is tried whenever a key is present, and the local guess is
+    /// mostly a fallback for when no key is configured yet.</summary>
+    private const double TrustedLocalConfidenceThreshold = 0.55;
+
+    private async void OnJetConeVideoSelectionRequested(JetConeRowViewModel row)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        var processingWindow = new JetConeProcessingWindow(_viewModel.JetCone.AnalyzeVideoAsync, videoPath) { Owner = this };
+        if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
+        {
+            if (processingWindow.FailureMessage is not null)
+            {
+                await new ContentDialog
+                {
+                    Title = "Jet cone analysis failed",
+                    Content = processingWindow.FailureMessage,
+                    CloseButtonText = "OK",
+                }.ShowAsync();
+            }
+            return;
+        }
+
+        if (!result.OnsetDetected)
+        {
+            await new ContentDialog
+            {
+                Title = "Warning overlay not found",
+                Content = "Couldn't find the \"FSD OPERATING / BEYOND SAFETY LIMITS\" warning in this recording. Make sure it shows the approach all the way through the warning appearing.",
+                CloseButtonText = "OK",
+            }.ShowAsync();
+            return;
+        }
+
+        double? prefill = result.LocalDistanceLs;
+        string sourceLabel = result.LocalConfidence >= TrustedLocalConfidenceThreshold
+            ? $"Local reading (confidence {result.LocalConfidence:P0})"
+            : $"Local reading, low confidence ({result.LocalConfidence:P0}) - please verify";
+
+        if (result.LocalConfidence < TrustedLocalConfidenceThreshold && _viewModel.JetCone.HasClaudeApiKey)
+        {
+            try
+            {
+                var claudeReading = await _viewModel.JetCone.ReadDistanceWithClaudeAsync(result.BottomLeftCropPng);
+                prefill = claudeReading.DistanceLs;
+                sourceLabel = $"Claude vision (confidence {claudeReading.Confidence}%)";
+            }
+            catch (Exception ex)
+            {
+                AppLog.LogError("ClaudeVisionFallback", ex);
+                // Fall through with the local guess already assigned above.
+            }
+        }
+
+        var reviewWindow = new JetConeReviewWindow(result.ReticleCropPng, result.BottomLeftCropPng, prefill, sourceLabel) { Owner = this };
+        if (reviewWindow.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (reviewWindow.UserCorrectedValue && !_viewModel.JetCone.HasClaudeApiKey)
+        {
+            await OfferClaudeApiKeySetupAsync();
+        }
+
+        _viewModel.JetCone.SaveMeasurement(row, reviewWindow.DistanceLs);
+    }
+
+    private async Task OfferClaudeApiKeySetupAsync()
+    {
+        var offer = await new ContentDialog
+        {
+            Title = "Improve future readings?",
+            Content = "Local text recognition struggled with this frame. Want to provide a Claude API key so future readings like this can use Claude's vision model instead? You can remove it any time from the About tab.",
+            PrimaryButtonText = "Add API Key",
+            CloseButtonText = "Not now",
+        }.ShowAsync();
+
+        if (offer != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var input = new PasswordBox { MinWidth = 320 };
+        var keyDialog = new ContentDialog
+        {
+            Title = "Claude API key",
+            Content = input,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        input.Loaded += (_, _) => input.Focus();
+
+        if (await keyDialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            var key = input.Password.Trim();
+            if (key.Length > 0)
+            {
+                _viewModel.JetCone.SetClaudeApiKey(key);
+                UpdateClaudeApiKeyStatusText();
+            }
+        }
     }
 }

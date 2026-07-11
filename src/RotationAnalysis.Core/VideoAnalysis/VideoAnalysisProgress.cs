@@ -6,6 +6,7 @@ public enum VideoAnalysisStage
     Tracking,
     FittingCenter,
     SolvingRotation,
+    DetectingOnset,
     Done,
 }
 
