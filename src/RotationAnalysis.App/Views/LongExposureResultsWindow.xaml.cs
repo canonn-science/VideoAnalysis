@@ -17,15 +17,18 @@ public partial class LongExposureResultsWindow : Window
     private readonly string _systemName;
     private readonly string? _bodyOrStationName;
 
-    public LongExposureResultsWindow(LongExposureResult result, string systemName, string? bodyOrStationName)
+    /// <summary>Generic over any labeled set of generated images - Long Exposure passes its six
+    /// variants, Slit Scan (which reuses this window's save workflow as-is per spec) passes its
+    /// single output.</summary>
+    public LongExposureResultsWindow(IReadOnlyList<(string DisplayName, byte[] Png)> images, string systemName, string? bodyOrStationName)
     {
         InitializeComponent();
         _systemName = systemName;
         _bodyOrStationName = bodyOrStationName;
 
-        foreach (var (variant, displayName, png) in result.AllVariants)
+        foreach (var (displayName, png) in images)
         {
-            VariantList.Items.Add(new VariantThumbnail(variant, displayName, png, ToBitmapImage(png)));
+            VariantList.Items.Add(new VariantThumbnail(displayName, png, ToBitmapImage(png)));
         }
 
         if (VariantList.Items.Count > 0)
@@ -33,6 +36,9 @@ public partial class LongExposureResultsWindow : Window
             VariantList.SelectedIndex = 0;
         }
     }
+
+    public static LongExposureResultsWindow ForLongExposureResult(LongExposureResult result, string systemName, string? bodyOrStationName)
+        => new(result.AllVariants.Select(v => (v.DisplayName, v.Png)).ToList(), systemName, bodyOrStationName);
 
     private static BitmapImage ToBitmapImage(byte[] pngBytes)
     {
@@ -127,15 +133,13 @@ public partial class LongExposureResultsWindow : Window
 
     private sealed class VariantThumbnail
     {
-        public VariantThumbnail(LongExposureVariant variant, string displayName, byte[] png, BitmapImage thumbnail)
+        public VariantThumbnail(string displayName, byte[] png, BitmapImage thumbnail)
         {
-            Variant = variant;
             DisplayName = displayName;
             Png = png;
             Thumbnail = thumbnail;
         }
 
-        public LongExposureVariant Variant { get; }
         public string DisplayName { get; }
         public byte[] Png { get; }
         public BitmapImage Thumbnail { get; }

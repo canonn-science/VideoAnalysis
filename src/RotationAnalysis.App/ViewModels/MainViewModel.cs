@@ -35,6 +35,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Stations = new StationViewModel();
         JetCone = new JetConeViewModel();
         LongExposure = new LongExposureViewModel();
+        SlitScan = new SlitScanViewModel();
         _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
         _ = LoadSubmittedFromCanonnAsync();
     }
@@ -86,6 +87,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public JetConeViewModel JetCone { get; }
 
     public LongExposureViewModel LongExposure { get; }
+
+    public SlitScanViewModel SlitScan { get; }
 
     public bool HasClaudeApiKey
     {
@@ -296,5 +299,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Stations.Dispose();
         JetCone.Dispose();
         LongExposure.Dispose();
+        SlitScan.Dispose();
     }
 }

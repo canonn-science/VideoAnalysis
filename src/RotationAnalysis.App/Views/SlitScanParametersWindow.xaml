@@ -1,0 +1,89 @@
+<Window x:Class="RotationAnalysis.App.Views.SlitScanParametersWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        Icon="/Assets/canonn.ico"
+        Title="Slit Scan Settings" Height="560" Width="480"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Slit Scan Settings" FontSize="18" FontWeight="SemiBold"
+                   Foreground="{StaticResource CanonnAccentBrush}" Margin="0,0,0,12"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Motion direction (optional preset)" FontWeight="SemiBold"
+                           Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="MotionDirectionCombo" SelectionChanged="MotionDirectionCombo_SelectionChanged" Margin="0,0,0,16">
+                    <ComboBoxItem Content="None" Tag="None" IsSelected="True"/>
+                    <ComboBoxItem Content="Left to right" Tag="LeftToRight"/>
+                    <ComboBoxItem Content="Right to left" Tag="RightToLeft"/>
+                    <ComboBoxItem Content="Top to bottom" Tag="TopToBottom"/>
+                    <ComboBoxItem Content="Bottom to top" Tag="BottomToTop"/>
+                </ComboBox>
+
+                <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
+                    <Run Text="Slit angle:"/> <Run x:Name="SlitAngleValueText" Text="90°"/>
+                </TextBlock>
+                <Slider x:Name="SlitAngleSlider" Minimum="0" Maximum="180" Value="90" TickFrequency="15" IsSnapToTickEnabled="False"
+                        ValueChanged="SlitAngleSlider_ValueChanged" Margin="0,2,0,14"/>
+
+                <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
+                    <Run Text="Slit width:"/> <Run x:Name="SlitWidthValueText" Text="2 px"/>
+                </TextBlock>
+                <Slider x:Name="SlitWidthSlider" Minimum="1" Maximum="50" Value="2"
+                        ValueChanged="SlitWidthSlider_ValueChanged" Margin="0,2,0,14"/>
+
+                <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
+                    <Run Text="Slit position:"/> <Run x:Name="SlitPositionValueText" Text="50%"/>
+                </TextBlock>
+                <Slider x:Name="SlitPositionSlider" Minimum="0" Maximum="100" Value="50"
+                        ValueChanged="SlitPositionSlider_ValueChanged" Margin="0,2,0,14"/>
+
+                <TextBlock Text="Scan direction" FontWeight="SemiBold"
+                           Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="ScanDirectionCombo" Margin="0,0,0,16">
+                    <ComboBoxItem Content="Forward" Tag="Forward" IsSelected="True"/>
+                    <ComboBoxItem Content="Reverse" Tag="Reverse"/>
+                </ComboBox>
+
+                <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
+                    <Run Text="Scan speed:"/> <Run x:Name="ScanSpeedValueText" Text="2 px/frame"/>
+                </TextBlock>
+                <Slider x:Name="ScanSpeedSlider" Minimum="1" Maximum="20" Value="2"
+                        ValueChanged="ScanSpeedSlider_ValueChanged" Margin="0,2,0,14"/>
+
+                <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
+                    <Run Text="Frame sampling interval:"/> <Run x:Name="FrameIntervalValueText" Text="every frame"/>
+                </TextBlock>
+                <Slider x:Name="FrameIntervalSlider" Minimum="1" Maximum="10" Value="1"
+                        ValueChanged="FrameIntervalSlider_ValueChanged" Margin="0,2,0,14"/>
+
+                <TextBlock Text="Blend mode (overlapping slits only)" FontWeight="SemiBold"
+                           Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="BlendModeCombo" Margin="0,0,0,16">
+                    <ComboBoxItem Content="Normal" Tag="Normal" IsSelected="True"/>
+                    <ComboBoxItem Content="Lighten" Tag="Lighten"/>
+                    <ComboBoxItem Content="Average" Tag="Average"/>
+                </ComboBox>
+
+                <CheckBox x:Name="LimitWidthCheckBox" Content="Limit output width" Margin="0,0,0,6"
+                          Checked="LimitWidthCheckBox_CheckedChanged" Unchecked="LimitWidthCheckBox_CheckedChanged"/>
+                <TextBox x:Name="MaxWidthTextBox" Text="2000" IsEnabled="False" Width="120" HorizontalAlignment="Left"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" Padding="16,8" Margin="0,0,8,0" Click="CancelButton_Click"/>
+            <Button Content="Generate" Padding="24,8" IsDefault="True"
+                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                    Click="GenerateButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _stationSearchDebounceCts;
     private CancellationTokenSource? _jetConeSearchDebounceCts;
     private CancellationTokenSource? _longExposureSearchDebounceCts;
+    private CancellationTokenSource? _slitScanSearchDebounceCts;
 
     public MainWindow()
     {
@@ -32,6 +33,7 @@ public partial class MainWindow : Window
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
         _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
         _viewModel.LongExposure.VideoSelectionRequested += OnLongExposureVideoSelectionRequested;
+        _viewModel.SlitScan.VideoSelectionRequested += OnSlitScanVideoSelectionRequested;
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -519,7 +521,89 @@ public partial class MainWindow : Window
             return;
         }
 
-        var resultsWindow = new LongExposureResultsWindow(result, row.Target.SystemName, row.Target.ObjectName) { Owner = this };
+        var resultsWindow = LongExposureResultsWindow.ForLongExposureResult(result, row.Target.SystemName, row.Target.ObjectName);
+        resultsWindow.Owner = this;
+        resultsWindow.ShowDialog();
+    }
+
+    private async void SlitScanSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        {
+            return;
+        }
+
+        _slitScanSearchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _slitScanSearchDebounceCts = cts;
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            await _viewModel.SlitScan.RefreshSuggestionsAsync(sender.Text, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer keystroke
+        }
+    }
+
+    private async void SlitScanSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        {
+            await _viewModel.SlitScan.SubmitAsync(system);
+        }
+    }
+
+    private async void SlitScanSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
+        await _viewModel.SlitScan.SubmitAsync(chosen);
+    }
+
+    private async void SlitScanSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.SlitScan.SubmitAsync(null);
+    }
+
+    private async void OnSlitScanVideoSelectionRequested(SlitScanRowViewModel row)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        var parametersWindow = new SlitScanParametersWindow { Owner = this };
+        if (parametersWindow.ShowDialog() != true || parametersWindow.Parameters is not { } parameters)
+        {
+            return;
+        }
+
+        var processingWindow = new SlitScanProcessingWindow(
+            (path, progress, ct) => _viewModel.SlitScan.GenerateAsync(path, parameters, progress, ct),
+            videoPath)
+        { Owner = this };
+        if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
+        {
+            if (processingWindow.FailureMessage is not null)
+            {
+                await new ContentDialog
+                {
+                    Title = "Slit scan generation failed",
+                    Content = processingWindow.FailureMessage,
+                    CloseButtonText = "OK",
+                }.ShowAsync();
+            }
+            return;
+        }
+
+        var resultsWindow = new LongExposureResultsWindow(
+            new[] { ("Slit Scan", result.ImagePng) },
+            row.Target.SystemName,
+            row.Target.ObjectName)
+        { Owner = this };
         resultsWindow.ShowDialog();
     }
 }
