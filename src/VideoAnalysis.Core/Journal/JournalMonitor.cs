@@ -149,7 +149,7 @@ public sealed class JournalMonitor : IDisposable
 
                 using var buffer = new MemoryStream();
                 stream.CopyTo(buffer);
-                var text = Encoding.UTF8.GetString(buffer.ToArray());
+                var text = Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
 
                 var lastNewline = text.LastIndexOf('\n');
                 if (lastNewline < 0)
