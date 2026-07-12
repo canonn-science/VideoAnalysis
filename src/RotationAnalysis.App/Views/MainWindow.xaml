@@ -475,7 +475,7 @@
                                TextWrapping="Wrap"
                                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                    <ScrollViewer Grid.Row="2" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" MaxWidth="520" HorizontalAlignment="Left">
+                    <ScrollViewer Grid.Row="2" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
                         <views:SlitScanControlPanel x:Name="SlitScanControls"/>
                     </ScrollViewer>
 

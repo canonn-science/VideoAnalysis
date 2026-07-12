@@ -2,193 +2,252 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.modernwpf.com/2019">
-    <StackPanel>
+    <UserControl.Resources>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CanonnSurface2Brush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource CanonnBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="Margin" Value="0,0,16,16"/>
+            <Setter Property="Width" Value="310"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+        <Style x:Key="CardHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource CanonnAccentBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource CanonnTextBrightBrush}"/>
+        </Style>
+        <!-- Deliberately plain (no bold/accent trigger) so switching modes doesn't visually "pop"
+             the way the collapsible checkboxes elsewhere do - it's just a set of three peer options. -->
+        <Style x:Key="ModeRadioStyle" TargetType="RadioButton">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource CanonnTextBrightBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bg" Background="{StaticResource CanonnSurfaceBrush}"
+                                BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{StaticResource CanonnAccentBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <WrapPanel Orientation="Horizontal">
 
         <!-- Geometry -->
-        <TextBlock Text="Geometry" FontSize="14" FontWeight="Bold"
-                   Foreground="{StaticResource CanonnAccentBrush}" Margin="0,0,0,8"/>
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Geometry" Style="{StaticResource CardHeaderStyle}"/>
 
-        <TextBlock Text="Motion direction (optional preset)" FontWeight="SemiBold"
-                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-        <ComboBox x:Name="MotionDirectionCombo" SelectionChanged="MotionDirectionCombo_SelectionChanged" Margin="0,0,0,16">
-            <ComboBoxItem Content="None" Tag="None" IsSelected="True"/>
-            <ComboBoxItem Content="Left to right" Tag="LeftToRight"/>
-            <ComboBoxItem Content="Right to left" Tag="RightToLeft"/>
-            <ComboBoxItem Content="Top to bottom" Tag="TopToBottom"/>
-            <ComboBoxItem Content="Bottom to top" Tag="BottomToTop"/>
-        </ComboBox>
+                <TextBlock Text="Motion direction (optional preset)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="MotionDirectionCombo" SelectionChanged="MotionDirectionCombo_SelectionChanged" Margin="0,0,0,14">
+                    <ComboBoxItem Content="None" Tag="None" IsSelected="True"/>
+                    <ComboBoxItem Content="Left to right" Tag="LeftToRight"/>
+                    <ComboBoxItem Content="Right to left" Tag="RightToLeft"/>
+                    <ComboBoxItem Content="Top to bottom" Tag="TopToBottom"/>
+                    <ComboBoxItem Content="Bottom to top" Tag="BottomToTop"/>
+                </ComboBox>
 
-        <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-            <Run Text="Slit angle:"/> <Run x:Name="SlitAngleValueText" Text="90°"/>
-        </TextBlock>
-        <Slider x:Name="SlitAngleSlider" Minimum="0" Maximum="180" Value="90" TickFrequency="15" IsSnapToTickEnabled="False"
-                ValueChanged="SlitAngleSlider_ValueChanged" Margin="0,2,0,14"/>
+                <TextBlock Style="{StaticResource FieldLabelStyle}">
+                    <Run Text="Slit angle:"/> <Run x:Name="SlitAngleValueText" Text="90°"/>
+                </TextBlock>
+                <Slider x:Name="SlitAngleSlider" Minimum="0" Maximum="180" Value="90" TickFrequency="15" IsSnapToTickEnabled="False"
+                        ValueChanged="SlitAngleSlider_ValueChanged" Margin="0,2,0,12"/>
 
-        <TextBlock x:Name="SlitPositionLabel" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-            <Run Text="Slit position:"/> <Run x:Name="SlitPositionValueText" Text="50%"/>
-        </TextBlock>
-        <Slider x:Name="SlitPositionSlider" Minimum="0" Maximum="100" Value="50"
-                ValueChanged="SlitPositionSlider_ValueChanged" Margin="0,2,0,14"/>
+                <TextBlock x:Name="SlitPositionLabel" Style="{StaticResource FieldLabelStyle}">
+                    <Run Text="Slit position:"/> <Run x:Name="SlitPositionValueText" Text="50%"/>
+                </TextBlock>
+                <Slider x:Name="SlitPositionSlider" Minimum="0" Maximum="100" Value="50"
+                        ValueChanged="SlitPositionSlider_ValueChanged" Margin="0,2,0,12"/>
 
-        <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-            <Run Text="Slit width:"/> <Run x:Name="SlitWidthValueText" Text="2 px"/>
-        </TextBlock>
-        <Slider x:Name="SlitWidthSlider" Minimum="1" Maximum="50" Value="2"
-                ValueChanged="SlitWidthSlider_ValueChanged" Margin="0,2,0,14"/>
+                <TextBlock Style="{StaticResource FieldLabelStyle}">
+                    <Run Text="Slit width:"/> <Run x:Name="SlitWidthValueText" Text="2 px"/>
+                </TextBlock>
+                <Slider x:Name="SlitWidthSlider" Minimum="1" Maximum="50" Value="2"
+                        ValueChanged="SlitWidthSlider_ValueChanged" Margin="0,2,0,12"/>
 
-        <CheckBox x:Name="AnimateWidthCheckBox" Content="Animate slit width over the render" Margin="0,0,0,10"
-                  Checked="AnimateWidthCheckBox_CheckedChanged" Unchecked="AnimateWidthCheckBox_CheckedChanged"/>
-        <StackPanel x:Name="WidthAnimationPanel" Visibility="Collapsed" Margin="16,0,0,16">
-            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-                <Run Text="Ends at width:"/> <Run x:Name="SlitWidthEndValueText" Text="2 px"/>
-            </TextBlock>
-            <Slider x:Name="SlitWidthEndSlider" Minimum="1" Maximum="50" Value="2"
-                    ValueChanged="SlitWidthEndSlider_ValueChanged" Margin="0,2,0,10"/>
-            <TextBlock Text="Width easing" FontWeight="SemiBold"
-                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-            <ComboBox x:Name="WidthEasingCombo">
-                <ComboBoxItem Content="Linear" Tag="Linear" IsSelected="True"/>
-                <ComboBoxItem Content="Ease In" Tag="EaseIn"/>
-                <ComboBoxItem Content="Ease Out" Tag="EaseOut"/>
-                <ComboBoxItem Content="Ease In-Out" Tag="EaseInOut"/>
-            </ComboBox>
-        </StackPanel>
-
-        <!-- Motion -->
-        <TextBlock Text="Motion" FontSize="14" FontWeight="Bold"
-                   Foreground="{StaticResource CanonnAccentBrush}" Margin="0,4,0,8"/>
-
-        <TextBlock Text="Motion mode" FontWeight="SemiBold"
-                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-        <ComboBox x:Name="MotionModeCombo" SelectionChanged="MotionModeCombo_SelectionChanged" Margin="0,0,0,16">
-            <ComboBoxItem Content="Static (classic time-slice)" Tag="Static" IsSelected="True"/>
-            <ComboBoxItem Content="Sweep (moving slit)" Tag="Sweep"/>
-            <ComboBoxItem Content="Rotational (spiral/tunnel)" Tag="Rotational"/>
-        </ComboBox>
-
-        <StackPanel x:Name="SweepPanel" Visibility="Collapsed">
-            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-                <Run Text="Sweep end position:"/> <Run x:Name="SweepEndValueText" Text="50%"/>
-            </TextBlock>
-            <Slider x:Name="SweepEndSlider" Minimum="0" Maximum="100" Value="50"
-                    ValueChanged="SweepEndSlider_ValueChanged" Margin="0,2,0,10"/>
-            <TextBlock Text="Sweep easing" FontWeight="SemiBold"
-                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-            <ComboBox x:Name="SweepEasingCombo" Margin="0,0,0,16">
-                <ComboBoxItem Content="Linear" Tag="Linear" IsSelected="True"/>
-                <ComboBoxItem Content="Ease In" Tag="EaseIn"/>
-                <ComboBoxItem Content="Ease Out" Tag="EaseOut"/>
-                <ComboBoxItem Content="Ease In-Out" Tag="EaseInOut"/>
-            </ComboBox>
-        </StackPanel>
-
-        <StackPanel x:Name="RotationalPanel" Visibility="Collapsed">
-            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-                <Run Text="Center X:"/> <Run x:Name="RotationCenterXValueText" Text="50%"/>
-            </TextBlock>
-            <Slider x:Name="RotationCenterXSlider" Minimum="0" Maximum="100" Value="50"
-                    ValueChanged="RotationCenterXSlider_ValueChanged" Margin="0,2,0,10"/>
-            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-                <Run Text="Center Y:"/> <Run x:Name="RotationCenterYValueText" Text="50%"/>
-            </TextBlock>
-            <Slider x:Name="RotationCenterYSlider" Minimum="0" Maximum="100" Value="50"
-                    ValueChanged="RotationCenterYSlider_ValueChanged" Margin="0,2,0,10"/>
-            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-                <Run Text="Radius:"/> <Run x:Name="RotationRadiusValueText" Text="50%"/>
-            </TextBlock>
-            <Slider x:Name="RotationRadiusSlider" Minimum="1" Maximum="100" Value="50"
-                    ValueChanged="RotationRadiusSlider_ValueChanged" Margin="0,2,0,10"/>
-            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-                <Run Text="Revolutions:"/> <Run x:Name="RotationRevolutionsValueText" Text="1.0"/>
-            </TextBlock>
-            <Slider x:Name="RotationRevolutionsSlider" Minimum="0.1" Maximum="10" Value="1.0"
-                    ValueChanged="RotationRevolutionsSlider_ValueChanged" Margin="0,2,0,10"/>
-            <TextBlock Text="Direction" FontWeight="SemiBold"
-                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-            <ComboBox x:Name="RotationDirectionCombo" Margin="0,0,0,16">
-                <ComboBoxItem Content="Clockwise" Tag="Clockwise" IsSelected="True"/>
-                <ComboBoxItem Content="Counter-Clockwise" Tag="CounterClockwise"/>
-            </ComboBox>
-        </StackPanel>
-
-        <!-- Sampling -->
-        <TextBlock Text="Sampling" FontSize="14" FontWeight="Bold"
-                   Foreground="{StaticResource CanonnAccentBrush}" Margin="0,4,0,8"/>
-
-        <TextBlock Text="Sampling order" FontWeight="SemiBold"
-                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-        <ComboBox x:Name="SamplingOrderCombo" SelectionChanged="SamplingOrderCombo_SelectionChanged" Margin="0,0,0,10">
-            <ComboBoxItem Content="Forward" Tag="Forward" IsSelected="True"/>
-            <ComboBoxItem Content="Reverse" Tag="Reverse"/>
-            <ComboBoxItem Content="Ping-Pong" Tag="PingPong"/>
-            <ComboBoxItem Content="Random" Tag="Random"/>
-        </ComboBox>
-        <StackPanel x:Name="RandomSeedPanel" Visibility="Collapsed" Margin="0,0,0,10">
-            <TextBlock Text="Random seed" FontWeight="SemiBold"
-                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-            <TextBox x:Name="RandomSeedTextBox" Text="0" Width="100" HorizontalAlignment="Left"/>
-        </StackPanel>
-
-        <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-            <Run Text="Frame sampling interval:"/> <Run x:Name="FrameIntervalValueText" Text="every frame"/>
-        </TextBlock>
-        <Slider x:Name="FrameIntervalSlider" Minimum="1" Maximum="10" Value="1"
-                ValueChanged="FrameIntervalSlider_ValueChanged" Margin="0,2,0,14"/>
-
-        <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-            <Run Text="In point:"/> <Run x:Name="InPointValueText" Text="0%"/>
-        </TextBlock>
-        <Slider x:Name="InPointSlider" Minimum="0" Maximum="99" Value="0"
-                ValueChanged="InPointSlider_ValueChanged" Margin="0,2,0,10"/>
-        <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-            <Run Text="Out point:"/> <Run x:Name="OutPointValueText" Text="100%"/>
-        </TextBlock>
-        <Slider x:Name="OutPointSlider" Minimum="1" Maximum="100" Value="100"
-                ValueChanged="OutPointSlider_ValueChanged" Margin="0,2,0,16"/>
-
-        <!-- Compositing -->
-        <TextBlock Text="Compositing" FontSize="14" FontWeight="Bold"
-                   Foreground="{StaticResource CanonnAccentBrush}" Margin="0,4,0,8"/>
-
-        <TextBlock FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}">
-            <Run Text="Scan speed:"/> <Run x:Name="ScanSpeedValueText" Text="2 px/frame"/>
-        </TextBlock>
-        <Slider x:Name="ScanSpeedSlider" Minimum="1" Maximum="20" Value="2"
-                ValueChanged="ScanSpeedSlider_ValueChanged" Margin="0,2,0,14"/>
-
-        <TextBlock Text="Blend mode (overlapping slits only)" FontWeight="SemiBold"
-                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-        <ComboBox x:Name="BlendModeCombo" Margin="0,0,0,16">
-            <ComboBoxItem Content="Normal" Tag="Normal" IsSelected="True"/>
-            <ComboBoxItem Content="Lighten" Tag="Lighten"/>
-            <ComboBoxItem Content="Average" Tag="Average"/>
-        </ComboBox>
-
-        <!-- Output -->
-        <TextBlock Text="Output" FontSize="14" FontWeight="Bold"
-                   Foreground="{StaticResource CanonnAccentBrush}" Margin="0,4,0,8"/>
-
-        <CheckBox x:Name="CustomOutputSizeCheckBox" Content="Set output size independent of source" Margin="0,0,0,10"
-                  Checked="CustomOutputSizeCheckBox_CheckedChanged" Unchecked="CustomOutputSizeCheckBox_CheckedChanged"/>
-        <StackPanel x:Name="OutputSizePanel" Visibility="Collapsed" Margin="16,0,0,0">
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <StackPanel Margin="0,0,16,0">
-                    <TextBlock Text="Width (px)" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
-                    <TextBox x:Name="OutputWidthTextBox" Text="1920" Width="100" HorizontalAlignment="Left"/>
-                </StackPanel>
-                <StackPanel>
-                    <TextBlock Text="Height (px)" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
-                    <TextBox x:Name="OutputHeightTextBox" Text="1080" Width="100" HorizontalAlignment="Left"/>
+                <CheckBox x:Name="AnimateWidthCheckBox" Content="Animate slit width over the render" Margin="0,0,0,8"
+                          Checked="AnimateWidthCheckBox_CheckedChanged" Unchecked="AnimateWidthCheckBox_CheckedChanged"/>
+                <StackPanel x:Name="WidthAnimationPanel" Visibility="Collapsed" Margin="12,0,0,0">
+                    <TextBlock Style="{StaticResource FieldLabelStyle}">
+                        <Run Text="Ends at width:"/> <Run x:Name="SlitWidthEndValueText" Text="2 px"/>
+                    </TextBlock>
+                    <Slider x:Name="SlitWidthEndSlider" Minimum="1" Maximum="50" Value="2"
+                            ValueChanged="SlitWidthEndSlider_ValueChanged" Margin="0,2,0,8"/>
+                    <TextBlock Text="Width easing" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="WidthEasingCombo">
+                        <ComboBoxItem Content="Linear" Tag="Linear" IsSelected="True"/>
+                        <ComboBoxItem Content="Ease In" Tag="EaseIn"/>
+                        <ComboBoxItem Content="Ease Out" Tag="EaseOut"/>
+                        <ComboBoxItem Content="Ease In-Out" Tag="EaseInOut"/>
+                    </ComboBox>
                 </StackPanel>
             </StackPanel>
-            <TextBlock Text="Interpolation" FontWeight="SemiBold"
-                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"/>
-            <ComboBox x:Name="InterpolationCombo">
-                <ComboBoxItem Content="Nearest (blocky)" Tag="Nearest"/>
-                <ComboBoxItem Content="Linear" Tag="Linear"/>
-                <ComboBoxItem Content="Cubic (smooth)" Tag="Cubic" IsSelected="True"/>
-            </ComboBox>
-        </StackPanel>
+        </Border>
 
-    </StackPanel>
+        <!-- Motion -->
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Motion" Style="{StaticResource CardHeaderStyle}"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                    <RadioButton x:Name="StaticModeRadio" Content="Static" GroupName="MotionMode" IsChecked="True"
+                                 Style="{StaticResource ModeRadioStyle}" Checked="MotionModeRadio_Checked"/>
+                    <RadioButton x:Name="SweepModeRadio" Content="Sweep" GroupName="MotionMode"
+                                 Style="{StaticResource ModeRadioStyle}" Checked="MotionModeRadio_Checked"/>
+                    <RadioButton x:Name="RotationalModeRadio" Content="Rotational" GroupName="MotionMode"
+                                 Style="{StaticResource ModeRadioStyle}" Checked="MotionModeRadio_Checked"/>
+                </StackPanel>
+
+                <TextBlock x:Name="StaticModeHint" Foreground="{StaticResource CanonnTextMutedBrush}" TextWrapping="Wrap"
+                           Text="Classic time-slice - the slit stays at the fixed position set under Geometry." Margin="0,0,0,4"/>
+
+                <StackPanel x:Name="SweepPanel" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource FieldLabelStyle}">
+                        <Run Text="Sweep end position:"/> <Run x:Name="SweepEndValueText" Text="50%"/>
+                    </TextBlock>
+                    <Slider x:Name="SweepEndSlider" Minimum="0" Maximum="100" Value="50"
+                            ValueChanged="SweepEndSlider_ValueChanged" Margin="0,2,0,8"/>
+                    <TextBlock Text="Sweep easing" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="SweepEasingCombo">
+                        <ComboBoxItem Content="Linear" Tag="Linear" IsSelected="True"/>
+                        <ComboBoxItem Content="Ease In" Tag="EaseIn"/>
+                        <ComboBoxItem Content="Ease Out" Tag="EaseOut"/>
+                        <ComboBoxItem Content="Ease In-Out" Tag="EaseInOut"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel x:Name="RotationalPanel" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource FieldLabelStyle}">
+                        <Run Text="Center X:"/> <Run x:Name="RotationCenterXValueText" Text="50%"/>
+                    </TextBlock>
+                    <Slider x:Name="RotationCenterXSlider" Minimum="0" Maximum="100" Value="50"
+                            ValueChanged="RotationCenterXSlider_ValueChanged" Margin="0,2,0,8"/>
+                    <TextBlock Style="{StaticResource FieldLabelStyle}">
+                        <Run Text="Center Y:"/> <Run x:Name="RotationCenterYValueText" Text="50%"/>
+                    </TextBlock>
+                    <Slider x:Name="RotationCenterYSlider" Minimum="0" Maximum="100" Value="50"
+                            ValueChanged="RotationCenterYSlider_ValueChanged" Margin="0,2,0,8"/>
+                    <TextBlock Style="{StaticResource FieldLabelStyle}">
+                        <Run Text="Radius:"/> <Run x:Name="RotationRadiusValueText" Text="50%"/>
+                    </TextBlock>
+                    <Slider x:Name="RotationRadiusSlider" Minimum="1" Maximum="100" Value="50"
+                            ValueChanged="RotationRadiusSlider_ValueChanged" Margin="0,2,0,8"/>
+                    <TextBlock Style="{StaticResource FieldLabelStyle}">
+                        <Run Text="Revolutions:"/> <Run x:Name="RotationRevolutionsValueText" Text="1.0"/>
+                    </TextBlock>
+                    <Slider x:Name="RotationRevolutionsSlider" Minimum="0.1" Maximum="10" Value="1.0"
+                            ValueChanged="RotationRevolutionsSlider_ValueChanged" Margin="0,2,0,8"/>
+                    <TextBlock Text="Direction" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="RotationDirectionCombo">
+                        <ComboBoxItem Content="Clockwise" Tag="Clockwise" IsSelected="True"/>
+                        <ComboBoxItem Content="Counter-Clockwise" Tag="CounterClockwise"/>
+                    </ComboBox>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Sampling -->
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Sampling" Style="{StaticResource CardHeaderStyle}"/>
+
+                <TextBlock Text="Sampling order" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="SamplingOrderCombo" SelectionChanged="SamplingOrderCombo_SelectionChanged" Margin="0,0,0,10">
+                    <ComboBoxItem Content="Forward" Tag="Forward" IsSelected="True"/>
+                    <ComboBoxItem Content="Reverse" Tag="Reverse"/>
+                    <ComboBoxItem Content="Ping-Pong" Tag="PingPong"/>
+                    <ComboBoxItem Content="Random" Tag="Random"/>
+                </ComboBox>
+                <StackPanel x:Name="RandomSeedPanel" Visibility="Collapsed" Margin="0,0,0,10">
+                    <TextBlock Text="Random seed" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                    <TextBox x:Name="RandomSeedTextBox" Text="0" Width="100" HorizontalAlignment="Left"/>
+                </StackPanel>
+
+                <TextBlock Style="{StaticResource FieldLabelStyle}">
+                    <Run Text="Frame sampling interval:"/> <Run x:Name="FrameIntervalValueText" Text="every frame"/>
+                </TextBlock>
+                <Slider x:Name="FrameIntervalSlider" Minimum="1" Maximum="10" Value="1"
+                        ValueChanged="FrameIntervalSlider_ValueChanged" Margin="0,2,0,12"/>
+
+                <TextBlock Style="{StaticResource FieldLabelStyle}">
+                    <Run Text="In point:"/> <Run x:Name="InPointValueText" Text="0%"/>
+                </TextBlock>
+                <Slider x:Name="InPointSlider" Minimum="0" Maximum="99" Value="0"
+                        ValueChanged="InPointSlider_ValueChanged" Margin="0,2,0,8"/>
+                <TextBlock Style="{StaticResource FieldLabelStyle}">
+                    <Run Text="Out point:"/> <Run x:Name="OutPointValueText" Text="100%"/>
+                </TextBlock>
+                <Slider x:Name="OutPointSlider" Minimum="1" Maximum="100" Value="100"
+                        ValueChanged="OutPointSlider_ValueChanged" Margin="0,2,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Compositing -->
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Compositing" Style="{StaticResource CardHeaderStyle}"/>
+
+                <TextBlock Style="{StaticResource FieldLabelStyle}">
+                    <Run Text="Scan speed:"/> <Run x:Name="ScanSpeedValueText" Text="2 px/frame"/>
+                </TextBlock>
+                <Slider x:Name="ScanSpeedSlider" Minimum="1" Maximum="20" Value="2"
+                        ValueChanged="ScanSpeedSlider_ValueChanged" Margin="0,2,0,12"/>
+
+                <TextBlock Text="Blend mode (overlapping slits only)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="BlendModeCombo">
+                    <ComboBoxItem Content="Normal" Tag="Normal" IsSelected="True"/>
+                    <ComboBoxItem Content="Lighten" Tag="Lighten"/>
+                    <ComboBoxItem Content="Average" Tag="Average"/>
+                </ComboBox>
+            </StackPanel>
+        </Border>
+
+        <!-- Output -->
+        <Border Style="{StaticResource CardStyle}">
+            <StackPanel>
+                <TextBlock Text="Output" Style="{StaticResource CardHeaderStyle}"/>
+
+                <CheckBox x:Name="CustomOutputSizeCheckBox" Content="Set output size independent of source" Margin="0,0,0,10"
+                          Checked="CustomOutputSizeCheckBox_CheckedChanged" Unchecked="CustomOutputSizeCheckBox_CheckedChanged"/>
+                <StackPanel x:Name="OutputSizePanel" Visibility="Collapsed" Margin="12,0,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Width (px)" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox x:Name="OutputWidthTextBox" Text="1920" Width="100" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Height (px)" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox x:Name="OutputHeightTextBox" Text="1080" Width="100" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock Text="Interpolation" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="InterpolationCombo">
+                        <ComboBoxItem Content="Nearest (blocky)" Tag="Nearest"/>
+                        <ComboBoxItem Content="Linear" Tag="Linear"/>
+                        <ComboBoxItem Content="Cubic (smooth)" Tag="Cubic" IsSelected="True"/>
+                    </ComboBox>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+    </WrapPanel>
 </UserControl>

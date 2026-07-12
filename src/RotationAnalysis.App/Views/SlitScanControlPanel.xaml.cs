@@ -56,21 +56,24 @@ public partial class SlitScanControlPanel : UserControl
         }
     }
 
-    private void MotionModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void MotionModeRadio_Checked(object sender, RoutedEventArgs e)
     {
-        if (SweepPanel is null || RotationalPanel is null)
+        if (SweepPanel is null || RotationalPanel is null || StaticModeHint is null)
         {
             return; // fires once during InitializeComponent, before the rest of the tree exists
         }
 
-        var tag = (MotionModeCombo.SelectedItem as ComboBoxItem)?.Tag as string;
-        SweepPanel.Visibility = tag == "Sweep" ? Visibility.Visible : Visibility.Collapsed;
-        RotationalPanel.Visibility = tag == "Rotational" ? Visibility.Visible : Visibility.Collapsed;
+        bool isSweep = ReferenceEquals(sender, SweepModeRadio);
+        bool isRotational = ReferenceEquals(sender, RotationalModeRadio);
+
+        StaticModeHint.Visibility = !isSweep && !isRotational ? Visibility.Visible : Visibility.Collapsed;
+        SweepPanel.Visibility = isSweep ? Visibility.Visible : Visibility.Collapsed;
+        RotationalPanel.Visibility = isRotational ? Visibility.Visible : Visibility.Collapsed;
 
         // Position doesn't apply to Rotational (which has its own Center/Radius controls).
         if (SlitPositionSlider is not null)
         {
-            SlitPositionSlider.IsEnabled = tag != "Rotational";
+            SlitPositionSlider.IsEnabled = !isRotational;
         }
     }
 
@@ -250,8 +253,6 @@ public partial class SlitScanControlPanel : UserControl
             return null;
         }
 
-        var motionModeTag = (MotionModeCombo.SelectedItem as ComboBoxItem)?.Tag as string;
-
         return new SlitScanParameters
         {
             SlitAngleDegrees = SlitAngleSlider.Value,
@@ -261,12 +262,11 @@ public partial class SlitScanControlPanel : UserControl
             SlitWidthEndPixels = (int)SlitWidthEndSlider.Value,
             WidthEasing = ParseEasing(WidthEasingCombo),
 
-            MotionMode = motionModeTag switch
-            {
-                "Sweep" => SlitScanMotionMode.Sweep,
-                "Rotational" => SlitScanMotionMode.Rotational,
-                _ => SlitScanMotionMode.Static,
-            },
+            MotionMode = SweepModeRadio.IsChecked == true
+                ? SlitScanMotionMode.Sweep
+                : RotationalModeRadio.IsChecked == true
+                    ? SlitScanMotionMode.Rotational
+                    : SlitScanMotionMode.Static,
             SweepEndPositionFraction = SweepEndSlider.Value / 100.0,
             SweepEasing = ParseEasing(SweepEasingCombo),
             RotationCenterXFraction = RotationCenterXSlider.Value / 100.0,
@@ -317,11 +317,19 @@ public partial class SlitScanControlPanel : UserControl
         SlitAngleSlider.Value = 90;
         SlitPositionSlider.Value = 50;
         SlitWidthSlider.Value = 2;
+        // Same no-op-if-already-false caveat as the radio buttons below - set explicitly.
         AnimateWidthCheckBox.IsChecked = false;
+        WidthAnimationPanel.Visibility = Visibility.Collapsed;
         SlitWidthEndSlider.Value = 2;
         SelectComboTag(WidthEasingCombo, "Linear");
 
-        SelectComboTag(MotionModeCombo, "Static");
+        // Setting IsChecked=true is a no-op (and won't fire the Checked handler) if it's already
+        // checked, so the panel visibility is reset explicitly rather than relying on the event.
+        StaticModeRadio.IsChecked = true;
+        StaticModeHint.Visibility = Visibility.Visible;
+        SweepPanel.Visibility = Visibility.Collapsed;
+        RotationalPanel.Visibility = Visibility.Collapsed;
+        SlitPositionSlider.IsEnabled = true;
         SweepEndSlider.Value = 50;
         SelectComboTag(SweepEasingCombo, "Linear");
         RotationCenterXSlider.Value = 50;
@@ -331,6 +339,7 @@ public partial class SlitScanControlPanel : UserControl
         SelectComboTag(RotationDirectionCombo, "Clockwise");
 
         SelectComboTag(SamplingOrderCombo, "Forward");
+        RandomSeedPanel.Visibility = Visibility.Collapsed;
         RandomSeedTextBox.Text = "0";
         FrameIntervalSlider.Value = 1;
         InPointSlider.Value = 0;
@@ -340,6 +349,7 @@ public partial class SlitScanControlPanel : UserControl
         SelectComboTag(BlendModeCombo, "Normal");
 
         CustomOutputSizeCheckBox.IsChecked = false;
+        OutputSizePanel.Visibility = Visibility.Collapsed;
         OutputWidthTextBox.Text = "1920";
         OutputHeightTextBox.Text = "1080";
         SelectComboTag(InterpolationCombo, "Cubic");
