@@ -118,16 +118,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         });
     }
 
-    private void OnJournalCommanderNameChanged(string name)
-    {
-        Application.Current.Dispatcher.Invoke(() =>
+        void Apply()
         {
             if (!OverrideUsername)
             {
                 CommanderName = name;
             }
-        });
-    }
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            Apply();
+        }
+        else
+        {
+            dispatcher.BeginInvoke((Action)Apply);
+        }
 
     public string? ErrorMessage
     {
