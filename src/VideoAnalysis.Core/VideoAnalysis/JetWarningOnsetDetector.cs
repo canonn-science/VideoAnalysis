@@ -53,11 +53,18 @@ public static class JetWarningOnsetDetector
 
     public static Rect RegionToPixels(Size frameSize, HudRegion region)
     {
-        int x0 = (int)(region.X0 * frameSize.Width);
-        int y0 = (int)(region.Y0 * frameSize.Height);
-        int x1 = (int)(region.X1 * frameSize.Width);
-        int y1 = (int)(region.Y1 * frameSize.Height);
-        return new Rect(x0, y0, Math.Max(1, x1 - x0), Math.Max(1, y1 - y0));
+        // Convert to pixel coords and clamp so the Rect always stays within the frame.
+        int x0 = (int)Math.Round(region.X0 * frameSize.Width);
+        int y0 = (int)Math.Round(region.Y0 * frameSize.Height);
+        int x1 = (int)Math.Round(region.X1 * frameSize.Width);
+        int y1 = (int)Math.Round(region.Y1 * frameSize.Height);
+
+        x0 = Math.Clamp(x0, 0, Math.Max(frameSize.Width - 1, 0));
+        y0 = Math.Clamp(y0, 0, Math.Max(frameSize.Height - 1, 0));
+        x1 = Math.Clamp(x1, x0 + 1, frameSize.Width);
+        y1 = Math.Clamp(y1, y0 + 1, frameSize.Height);
+
+        return new Rect(x0, y0, x1 - x0, y1 - y0);
     }
 
     /// <summary>Always returns an independent copy - safe to keep around after the source frame
