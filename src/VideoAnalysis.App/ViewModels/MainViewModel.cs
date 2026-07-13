@@ -33,6 +33,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _monitorJournals;
     private bool _overrideUsername;
     private bool _organizeRenamedVideosBySystem;
+    private string? _longExposureOutputDirectory;
     private bool _hasClaudeApiKey;
     private VideoLibraryEntryViewModel? _activeLibraryVideo;
 
@@ -43,6 +44,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _monitorJournals = settings.MonitorJournals;
         _overrideUsername = settings.OverrideUsername;
         _organizeRenamedVideosBySystem = settings.OrganizeRenamedVideosBySystem;
+        _longExposureOutputDirectory = settings.LongExposureOutputDirectory;
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
         Stations = new StationViewModel();
         JetCone = new JetConeViewModel();
@@ -128,6 +130,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Null means "use the default Pictures\RotationAnalysisLab\LongExposure folder" -
+    /// updated whenever a Long Exposure save goes somewhere other than the currently suggested
+    /// folder, so later saves default there instead of reverting back to the original default.</summary>
+    public string? LongExposureOutputDirectory
+    {
+        get => _longExposureOutputDirectory;
+        set
+        {
+            if (SetField(ref _longExposureOutputDirectory, value))
+            {
+                PersistSettings();
+            }
+        }
+    }
+
     private void PersistSettings()
     {
         _settingsStore.Save(new AppSettings
@@ -136,6 +153,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             MonitorJournals = _monitorJournals,
             OverrideUsername = _overrideUsername,
             OrganizeRenamedVideosBySystem = _organizeRenamedVideosBySystem,
+            LongExposureOutputDirectory = _longExposureOutputDirectory,
         });
     }
 

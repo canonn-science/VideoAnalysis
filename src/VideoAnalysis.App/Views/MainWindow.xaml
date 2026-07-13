@@ -413,25 +413,48 @@
                     <Border Grid.Row="2" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
                             BorderThickness="1" Padding="14" Margin="0,12,0,0">
                         <StackPanel>
-                            <TextBlock Text="What each mode shows" FontWeight="SemiBold" FontSize="14"
-                                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,8"/>
-                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}" LineHeight="20">
-                                <Run FontWeight="SemiBold" Text="Average"/><Run Text=" - smooths out anything that moves, leaving only static objects sharp: the classic long-exposure look."/>
-                                <LineBreak/>
-                                <Run FontWeight="SemiBold" Text="Maximum"/><Run Text=" - keeps the brightest value seen at each pixel across the whole clip: good for star trails and bright motion streaks."/>
-                                <LineBreak/>
-                                <Run FontWeight="SemiBold" Text="Minimum"/><Run Text=" - keeps the darkest value seen at each pixel: highlights whatever consistently stayed dark, e.g. a transiting body."/>
-                                <LineBreak/>
-                                <Run FontWeight="SemiBold" Text="Max Minus Min"/><Run Text=" - the difference between brightest and darkest at each pixel: isolates whatever changed from what stayed static."/>
-                                <LineBreak/>
-                                <Run FontWeight="SemiBold" Text="Motion Variance"/><Run Text=" - a heatmap of how much each pixel fluctuated over time: moving regions light up, static background goes black."/>
-                                <LineBreak/>
-                                <Run FontWeight="SemiBold" Text="Motion Blur"/><Run Text=" - a fading trail effect where recent motion dominates but older bright spots fade out, rather than persisting forever like Maximum's trails."/>
-                            </TextBlock>
+                            <TextBlock FontWeight="SemiBold" FontSize="14"
+                                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"
+                                       Text="Modes to generate"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10"
+                                       Foreground="{StaticResource CanonnTextMutedBrush}"
+                                       Text="Uncheck any you don't need - skipped modes aren't computed at all, so fewer checked modes means faster generation."/>
+
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeAverage, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Average"/><Run Text=" - smooths out anything that moves, leaving only static objects sharp: the classic long-exposure look."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMaximum, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Maximum"/><Run Text=" - keeps the brightest value seen at each pixel across the whole clip: good for star trails and bright motion streaks."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMinimum, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Minimum"/><Run Text=" - keeps the darkest value seen at each pixel: highlights whatever consistently stayed dark, e.g. a transiting body."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMaxMinusMin, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Max Minus Min"/><Run Text=" - the difference between brightest and darkest at each pixel: isolates whatever changed from what stayed static."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMotionVariance, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Variance"/><Run Text=" - a heatmap of how much each pixel fluctuated over time: moving regions light up, static background goes black."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding IncludeMotionBlur, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Blur"/><Run Text=" - a fading trail effect where recent motion dominates but older bright spots fade out, rather than persisting forever like Maximum's trails."/>
+                                </TextBlock>
+                            </CheckBox>
                         </StackPanel>
                     </Border>
 
-                    <StackPanel Grid.Row="3" Margin="0,16,0,0" MaxWidth="420" HorizontalAlignment="Left">
+                    <StackPanel Grid.Row="3" Margin="0,16,0,0" MaxWidth="420" HorizontalAlignment="Left"
+                                IsEnabled="{Binding IncludeMotionBlur}">
                         <TextBlock Foreground="{StaticResource CanonnTextBrightBrush}" FontWeight="SemiBold">
                             <Run Text="Motion Blur trail length:"/> <Run x:Name="MotionBlurAlphaValueText" Text="0.15"/>
                         </TextBlock>

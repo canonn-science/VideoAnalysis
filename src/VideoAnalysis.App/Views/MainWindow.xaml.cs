@@ -12,6 +12,7 @@ using VideoAnalysis.App.ViewModels;
 using VideoAnalysis.Core.Diagnostics;
 using VideoAnalysis.Core.Storage;
 using VideoAnalysis.Core.Updates;
+using VideoAnalysis.Core.VideoAnalysis.LongExposure;
 
 namespace VideoAnalysis.App.Views;
 
@@ -20,8 +21,13 @@ public partial class MainWindow : Window
     private const string UpdateRepoOwner = "canonn-science";
     private const string UpdateRepoName = "VideoAnalysis";
 
-    private static readonly string LongExposureOutputRoot = Path.Combine(
+    private static readonly string DefaultLongExposureOutputRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "RotationAnalysisLab", "LongExposure");
+
+    /// <summary>Defaults under the user's Pictures folder, but once a save goes somewhere else
+    /// (see <see cref="UpdateLongExposureOutputDirectoryIfChanged"/>), that folder is remembered
+    /// and used as the root for subsequent saves instead.</summary>
+    private string LongExposureOutputRoot => _viewModel.LongExposureOutputDirectory ?? DefaultLongExposureOutputRoot;
 
     private readonly MainViewModel _viewModel = new();
     private readonly UpdateChecker _updateChecker = new();
@@ -581,6 +587,7 @@ public partial class MainWindow : Window
         _viewModel.LongExposure.VideoFilePath = entry.FilePath;
         _viewModel.LongExposure.SystemName = entry.Entry.SystemName;
         _viewModel.LongExposure.BodyOrStationName = entry.Entry.BodyName ?? entry.Entry.StationName;
+        _viewModel.LongExposure.RingName = entry.Entry.RingName;
     }
 
     private void MotionBlurAlphaSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -595,6 +602,12 @@ public partial class MainWindow : Window
         if (videoPath is null)
         {
             _viewModel.LongExposure.ErrorMessage = "Select a video from the library first.";
+            return;
+        }
+
+        if (_viewModel.LongExposure.SelectedVariants == LongExposureVariants.None)
+        {
+            _viewModel.LongExposure.ErrorMessage = "Check at least one mode to generate.";
             return;
         }
 
@@ -644,16 +657,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var (systemName, bodyOrStationName) = ResolveLongExposureNaming();
-        var directory = LongExposureFileNamer.SuggestDirectory(LongExposureOutputRoot, systemName);
+        var directory = LongExposureFileNamer.SuggestDirectory(LongExposureOutputRoot, ResolveLongExposureSystemName());
         Directory.CreateDirectory(directory);
-        var fileName = LongExposureFileNamer.SuggestFileName(systemName, bodyOrStationName, null, selected.DisplayName, ".png");
+        var suggestedPath = BuildLongExposureFilePath(selected.DisplayName, directory);
 
         var dialog = new SaveFileDialog
         {
             Title = "Save Long Exposure Image",
             InitialDirectory = directory,
-            FileName = fileName,
+            FileName = Path.GetFileName(suggestedPath),
             Filter = "PNG Image (*.png)|*.png",
             OverwritePrompt = true,
         };
@@ -661,13 +673,13 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) == true)
         {
             File.WriteAllBytes(dialog.FileName, selected.Png);
+            UpdateLongExposureOutputDirectoryIfChanged(Path.GetDirectoryName(dialog.FileName), directory);
         }
     }
 
     private void LongExposureSaveAllButton_Click(object sender, RoutedEventArgs e)
     {
-        var (systemName, bodyOrStationName) = ResolveLongExposureNaming();
-        var directory = LongExposureFileNamer.SuggestDirectory(LongExposureOutputRoot, systemName);
+        var directory = LongExposureFileNamer.SuggestDirectory(LongExposureOutputRoot, ResolveLongExposureSystemName());
 
         var folderDialog = new OpenFolderDialog
         {
@@ -681,44 +693,51 @@ public partial class MainWindow : Window
         }
 
         var targetDirectory = folderDialog.FolderName;
-        var items = LongExposureVariantList.Items.Cast<LongExposureVariantThumbnail>().ToList();
-        var plannedPaths = items
-            .Select(item => (Item: item, Path: Path.Combine(targetDirectory, LongExposureFileNamer.SuggestFileName(systemName, bodyOrStationName, null, item.DisplayName, ".png"))))
-            .ToList();
-
-        var conflicts = plannedPaths.Where(p => LongExposureFileNamer.WouldOverwrite(p.Path)).ToList();
-        if (conflicts.Count > 0)
-        {
-            var names = string.Join("\n", conflicts.Select(c => Path.GetFileName(c.Path)));
-            var result = MessageBox.Show(
-                this,
-                $"The following files already exist and will be overwritten:\n\n{names}\n\nContinue?",
-                "Overwrite existing files?",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (result != MessageBoxResult.Yes)
-            {
-                return;
-            }
-        }
-
         Directory.CreateDirectory(targetDirectory);
-        foreach (var (item, path) in plannedPaths)
+
+        // Same auto-incrementing scheme as video renaming - each variant just claims the next
+        // free "_vN" suffix if its name is already taken, rather than prompting to overwrite.
+        var items = LongExposureVariantList.Items.Cast<LongExposureVariantThumbnail>().ToList();
+        foreach (var item in items)
         {
+            var path = BuildLongExposureFilePath(item.DisplayName, targetDirectory);
             File.WriteAllBytes(path, item.Png);
         }
 
-        MessageBox.Show(this, $"Saved {plannedPaths.Count} images to {targetDirectory}.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+        UpdateLongExposureOutputDirectoryIfChanged(targetDirectory, directory);
+        MessageBox.Show(this, $"Saved {items.Count} images to {targetDirectory}.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    /// <summary>Falls back to the video's own filename as the "system" for output naming when the
-    /// selected library entry wasn't tagged with one - same fallback Slit Scan's results use.</summary>
-    private (string SystemName, string? BodyOrStationName) ResolveLongExposureNaming()
+    /// <summary>Builds a save path using the same naming convention as renaming the source video
+    /// (see <see cref="VideoFileNamer"/>: sanitized Ring &gt; Body &gt; System name, with an
+    /// auto-incrementing "_vN" suffix if that exact name is already taken) - just with the variant
+    /// appended so multiple saved images stay distinguishable, and a .png extension instead of the
+    /// video's own.</summary>
+    private string BuildLongExposureFilePath(string variantDisplayName, string targetDirectory)
     {
-        var systemName = _viewModel.LongExposure.SystemName
-            ?? (_viewModel.LongExposure.VideoFilePath is { } path ? Path.GetFileNameWithoutExtension(path) : "Unknown");
-        return (systemName, _viewModel.LongExposure.BodyOrStationName);
+        var videoPath = _viewModel.LongExposure.VideoFilePath ?? string.Empty;
+        var suggestedName = $"{ResolveLongExposureBaseName()} ({variantDisplayName})";
+        return VideoFileNamer.GetNextAvailableFileName(Path.ChangeExtension(videoPath, ".png"), suggestedName, targetDirectory);
     }
+
+    /// <summary>Remembers <paramref name="chosenDirectory"/> as the new default for future Long
+    /// Exposure saves, but only if it actually differs from what was already suggested -
+    /// accepting the suggested folder as-is shouldn't "lock in" a nested system subfolder as the
+    /// new root the next time a (possibly different) system's images are saved.</summary>
+    private void UpdateLongExposureOutputDirectoryIfChanged(string? chosenDirectory, string suggestedDirectory)
+    {
+        if (chosenDirectory is not null && !string.Equals(chosenDirectory, suggestedDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            _viewModel.LongExposureOutputDirectory = chosenDirectory;
+        }
+    }
+
+    private string LongExposureVideoFileNameFallback =>
+        _viewModel.LongExposure.VideoFilePath is { } path ? Path.GetFileNameWithoutExtension(path) : "Unknown";
+
+    private string ResolveLongExposureSystemName() => _viewModel.LongExposure.SystemName ?? LongExposureVideoFileNameFallback;
+
+    private string ResolveLongExposureBaseName() => _viewModel.LongExposure.SuggestedFileBaseName ?? LongExposureVideoFileNameFallback;
 
     private static BitmapImage ToBitmapImage(byte[] pngBytes)
     {

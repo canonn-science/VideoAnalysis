@@ -15,9 +15,16 @@ public sealed class LongExposureViewModel : ObservableObject
     private string? _videoFilePath;
     private string? _systemName;
     private string? _bodyOrStationName;
+    private string? _ringName;
     private double _motionBlurAlpha = LongExposureProcessor.DefaultMotionBlurAlpha;
     private string? _errorMessage;
     private LongExposureResult? _result;
+    private bool _includeAverage = true;
+    private bool _includeMaximum = true;
+    private bool _includeMinimum = true;
+    private bool _includeMaxMinusMin = true;
+    private bool _includeMotionVariance = true;
+    private bool _includeMotionBlur = true;
 
     public string? VideoFilePath
     {
@@ -50,6 +57,21 @@ public sealed class LongExposureViewModel : ObservableObject
         set => SetField(ref _bodyOrStationName, value);
     }
 
+    public string? RingName
+    {
+        get => _ringName;
+        set => SetField(ref _ringName, value);
+    }
+
+    /// <summary>The name a saved output image is based on: the most specific of ring/body/system
+    /// that's tagged on the selected library entry - the same Ring &gt; Body &gt; System priority
+    /// <see cref="VideoUploadMetadataViewModel.SuggestedFileBaseName"/> uses to rename the source
+    /// video itself, so a saved image and its source video end up named consistently.</summary>
+    public string? SuggestedFileBaseName =>
+        !string.IsNullOrWhiteSpace(RingName) ? RingName :
+        !string.IsNullOrWhiteSpace(BodyOrStationName) ? BodyOrStationName :
+        SystemName;
+
     /// <summary>0.01-1.0 blend weight for the Motion Blur variant's exponential moving average -
     /// see <see cref="LongExposureProcessor.GenerateAsync"/>.</summary>
     public double MotionBlurAlpha
@@ -81,6 +103,60 @@ public sealed class LongExposureViewModel : ObservableObject
 
     public bool HasResult => Result is not null;
 
+    /// <summary>Unchecking a mode skips generating it entirely (see
+    /// <see cref="LongExposureProcessor.GenerateAsync"/>), not just hiding it afterward - so
+    /// deselecting variants you don't need speeds up generation.</summary>
+    public bool IncludeAverage
+    {
+        get => _includeAverage;
+        set => SetField(ref _includeAverage, value);
+    }
+
+    public bool IncludeMaximum
+    {
+        get => _includeMaximum;
+        set => SetField(ref _includeMaximum, value);
+    }
+
+    public bool IncludeMinimum
+    {
+        get => _includeMinimum;
+        set => SetField(ref _includeMinimum, value);
+    }
+
+    public bool IncludeMaxMinusMin
+    {
+        get => _includeMaxMinusMin;
+        set => SetField(ref _includeMaxMinusMin, value);
+    }
+
+    public bool IncludeMotionVariance
+    {
+        get => _includeMotionVariance;
+        set => SetField(ref _includeMotionVariance, value);
+    }
+
+    public bool IncludeMotionBlur
+    {
+        get => _includeMotionBlur;
+        set => SetField(ref _includeMotionBlur, value);
+    }
+
+    public LongExposureVariants SelectedVariants
+    {
+        get
+        {
+            var variants = LongExposureVariants.None;
+            if (IncludeAverage) variants |= LongExposureVariants.Average;
+            if (IncludeMaximum) variants |= LongExposureVariants.Maximum;
+            if (IncludeMinimum) variants |= LongExposureVariants.Minimum;
+            if (IncludeMaxMinusMin) variants |= LongExposureVariants.MaxMinusMin;
+            if (IncludeMotionVariance) variants |= LongExposureVariants.MotionVariance;
+            if (IncludeMotionBlur) variants |= LongExposureVariants.MotionBlur;
+            return variants;
+        }
+    }
+
     public Task<LongExposureResult> GenerateAsync(string videoPath, IProgress<VideoAnalysisProgress> progress, CancellationToken ct)
-        => LongExposureProcessor.GenerateAsync(videoPath, MotionBlurAlpha, progress, ct);
+        => LongExposureProcessor.GenerateAsync(videoPath, MotionBlurAlpha, SelectedVariants, progress, ct);
 }
