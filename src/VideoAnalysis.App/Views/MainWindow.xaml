@@ -399,63 +399,104 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <ui:AutoSuggestBox x:Name="LongExposureSystemSearchBox" Grid.Column="0"
-                                           FontSize="16"
-                                           PlaceholderText="Type at least 3 characters of a system name…"
-                                           Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                           ItemsSource="{Binding Suggestions}"
-                                           DisplayMemberPath="Name"
-                                           TextMemberPath="Name"
-                                           TextChanged="LongExposureSystemSearchBox_TextChanged"
-                                           QuerySubmitted="LongExposureSystemSearchBox_QuerySubmitted"
-                                           SuggestionChosen="LongExposureSystemSearchBox_SuggestionChosen"/>
-                        <Button Grid.Column="1" Content="Submit" Margin="8,0,0,0" Padding="16,8"
-                                FontSize="16" Background="{StaticResource CanonnAccentBrush}"
-                                Foreground="White" Click="LongExposureSubmitButton_Click"/>
-                    </Grid>
+                    <TextBlock Grid.Row="0" FontSize="14" Foreground="{StaticResource CanonnTextBrightBrush}"
+                               Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
 
                     <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                TextWrapping="Wrap"
                                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                    <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
-                                 Foreground="{StaticResource CanonnAccentBrush}"
-                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+                    <Border Grid.Row="2" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                            BorderThickness="1" Padding="14" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="What each mode shows" FontWeight="SemiBold" FontSize="14"
+                                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,8"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}" LineHeight="20">
+                                <Run FontWeight="SemiBold" Text="Average"/><Run Text=" - smooths out anything that moves, leaving only static objects sharp: the classic long-exposure look."/>
+                                <LineBreak/>
+                                <Run FontWeight="SemiBold" Text="Maximum"/><Run Text=" - keeps the brightest value seen at each pixel across the whole clip: good for star trails and bright motion streaks."/>
+                                <LineBreak/>
+                                <Run FontWeight="SemiBold" Text="Minimum"/><Run Text=" - keeps the darkest value seen at each pixel: highlights whatever consistently stayed dark, e.g. a transiting body."/>
+                                <LineBreak/>
+                                <Run FontWeight="SemiBold" Text="Max Minus Min"/><Run Text=" - the difference between brightest and darkest at each pixel: isolates whatever changed from what stayed static."/>
+                                <LineBreak/>
+                                <Run FontWeight="SemiBold" Text="Motion Variance"/><Run Text=" - a heatmap of how much each pixel fluctuated over time: moving regions light up, static background goes black."/>
+                                <LineBreak/>
+                                <Run FontWeight="SemiBold" Text="Motion Blur"/><Run Text=" - a fading trail effect where recent motion dominates but older bright spots fade out, rather than persisting forever like Maximum's trails."/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
 
-                    <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
-                               Foreground="{StaticResource CanonnAccentBrush}"
-                               Text="{Binding ResolvedSystemName, StringFormat='Bodies and stations in {0}'}"
-                               Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
+                    <StackPanel Grid.Row="3" Margin="0,16,0,0" MaxWidth="420" HorizontalAlignment="Left">
+                        <TextBlock Foreground="{StaticResource CanonnTextBrightBrush}" FontWeight="SemiBold">
+                            <Run Text="Motion Blur trail length:"/> <Run x:Name="MotionBlurAlphaValueText" Text="0.15"/>
+                        </TextBlock>
+                        <Slider x:Name="MotionBlurAlphaSlider" Minimum="0.02" Maximum="0.6" Value="0.15"
+                                SmallChange="0.01" LargeChange="0.05"
+                                ValueChanged="MotionBlurAlphaSlider_ValueChanged" Margin="0,4,0,0"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource CanonnTextMutedBrush}" Margin="0,4,0,0"
+                                   Text="Lower = longer, fainter trails. Higher = shorter, sharper trails. Only affects the Motion Blur variant."/>
+                    </StackPanel>
 
-                    <DataGrid Grid.Row="4" ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
-                              IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                              SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                              Background="{StaticResource CanonnSurface2Brush}"
-                              RowBackground="{StaticResource CanonnSurfaceBrush}"
-                              AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                              BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
-                            <DataGridTextColumn Header="Object" Binding="{Binding ObjectName}" Width="Auto"/>
-                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="Auto"/>
-                            <DataGridTextColumn Header="Type" Binding="{Binding ObjectType}" Width="Auto"/>
-                            <DataGridTemplateColumn Header="Video" Width="Auto">
-                                <DataGridTemplateColumn.CellTemplate>
+                    <Button Grid.Row="4" Content="Generate Long Exposure" Padding="24,8" Margin="0,16,0,0"
+                            HorizontalAlignment="Left" FontSize="16"
+                            Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                            Click="LongExposureGenerateButton_Click"/>
+
+                    <Grid Grid.Row="5" Margin="0,16,0,0" Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Select a variation to preview, then save it or save all of them." FontSize="14"
+                                   FontWeight="SemiBold" Foreground="{StaticResource CanonnAccentBrush}" Margin="0,0,0,12"/>
+
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
+                                <Image x:Name="LongExposurePreviewImage" Stretch="Uniform"/>
+                            </Border>
+
+                            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                                          Background="{StaticResource CanonnBorderBrush}"/>
+
+                            <ListBox x:Name="LongExposureVariantList" Grid.Column="2" SelectionMode="Single"
+                                     Background="Transparent" BorderThickness="0" Margin="8,0,0,0"
+                                     SelectionChanged="LongExposureVariantList_SelectionChanged">
+                                <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
+                                        <Border Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                                Margin="0,0,0,8" Padding="4">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform" Width="90" Height="60"/>
+                                                <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                                           Foreground="{StaticResource CanonnTextBrightBrush}" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Border>
                                     </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button x:Name="LongExposureSaveSelectedButton" Content="Save Selected…" Padding="16,8" Margin="0,0,8,0"
+                                    Click="LongExposureSaveSelectedButton_Click"/>
+                            <Button Content="Save All…" Padding="16,8"
+                                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                    Click="LongExposureSaveAllButton_Click"/>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </TabItem>
 

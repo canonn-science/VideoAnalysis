@@ -15,14 +15,18 @@ namespace VideoAnalysis.Core.VideoAnalysis.LongExposure;
 /// </summary>
 public static class LongExposureProcessor
 {
-    /// <summary>Blend weight for each new frame in the motion-blur exponential moving average.
-    /// Lower = longer, fainter trails; higher = shorter, sharper ones. Chosen empirically as a
-    /// reasonable middle ground for typical Elite Dangerous flight/orbit footage.</summary>
-    private const double MotionBlurAlpha = 0.15;
+    /// <summary>Default blend weight for each new frame in the motion-blur exponential moving
+    /// average - lower = longer, fainter trails; higher = shorter, sharper ones. Chosen empirically
+    /// as a reasonable middle ground for typical Elite Dangerous flight/orbit footage.</summary>
+    public const double DefaultMotionBlurAlpha = 0.15;
 
+    /// <summary><paramref name="motionBlurAlpha"/> is clamped to (0, 1] - 0 would never let a new
+    /// frame contribute anything, freezing the accumulator at the first frame forever.</summary>
     public static Task<LongExposureResult> GenerateAsync(
-        string videoPath, IProgress<VideoAnalysisProgress>? progress = null, CancellationToken ct = default)
+        string videoPath, double motionBlurAlpha = DefaultMotionBlurAlpha,
+        IProgress<VideoAnalysisProgress>? progress = null, CancellationToken ct = default)
     {
+        var alpha = Math.Clamp(motionBlurAlpha, 0.01, 1.0);
         return Task.Run(() =>
         {
             progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.Opening, 0, "Opening video…"));
@@ -73,7 +77,7 @@ public static class LongExposureProcessor
                 {
                     frame.ConvertTo(frameDouble, MatType.CV_64FC3);
                     Cv2.Add(sumFrame, frameDouble, sumFrame);
-                    Cv2.AddWeighted(frameDouble, MotionBlurAlpha, blurAccumulator, 1.0 - MotionBlurAlpha, 0, blurAccumulator);
+                    Cv2.AddWeighted(frameDouble, alpha, blurAccumulator, 1.0 - alpha, 0, blurAccumulator);
                 }
 
                 using (var gray = new Mat())

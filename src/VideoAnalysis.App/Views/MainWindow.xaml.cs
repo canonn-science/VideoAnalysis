@@ -3,12 +3,14 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using Microsoft.Win32;
 using ModernWpf.Controls;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.App.ViewModels;
 using VideoAnalysis.Core.Diagnostics;
+using VideoAnalysis.Core.Storage;
 using VideoAnalysis.Core.Updates;
 
 namespace VideoAnalysis.App.Views;
@@ -18,12 +20,14 @@ public partial class MainWindow : Window
     private const string UpdateRepoOwner = "canonn-science";
     private const string UpdateRepoName = "VideoAnalysis";
 
+    private static readonly string LongExposureOutputRoot = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "RotationAnalysisLab", "LongExposure");
+
     private readonly MainViewModel _viewModel = new();
     private readonly UpdateChecker _updateChecker = new();
     private CancellationTokenSource? _searchDebounceCts;
     private CancellationTokenSource? _stationSearchDebounceCts;
     private CancellationTokenSource? _jetConeSearchDebounceCts;
-    private CancellationTokenSource? _longExposureSearchDebounceCts;
 
     public MainWindow()
     {
@@ -34,8 +38,8 @@ public partial class MainWindow : Window
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
         _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
-        _viewModel.LongExposure.VideoSelectionRequested += OnLongExposureVideoSelectionRequested;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForSlitScan;
+        _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForLongExposure;
         _viewModel.VideoLibrary.SelectFirstEntryIfAny();
         Closed += (_, _) =>
         {
@@ -562,54 +566,40 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void LongExposureSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    /// <summary>Long Exposure only ever needed a system/body/station identity to name its output
+    /// files - the selected library entry already carries that, so (like Slit Scan) selecting any
+    /// non-missing library video just loads it here directly.</summary>
+    private void OnLibraryEntrySelectedForLongExposure(VideoLibraryEntryViewModel entry)
     {
-        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        if (entry.IsFileMissing)
         {
             return;
         }
 
-        _longExposureSearchDebounceCts?.Cancel();
-        var cts = new CancellationTokenSource();
-        _longExposureSearchDebounceCts = cts;
-
-        try
-        {
-            await Task.Delay(300, cts.Token);
-            await _viewModel.LongExposure.RefreshSuggestionsAsync(sender.Text, cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            // superseded by a newer keystroke
-        }
+        _viewModel.LongExposure.ErrorMessage = null;
+        _viewModel.LongExposure.Result = null;
+        _viewModel.LongExposure.VideoFilePath = entry.FilePath;
+        _viewModel.LongExposure.SystemName = entry.Entry.SystemName;
+        _viewModel.LongExposure.BodyOrStationName = entry.Entry.BodyName ?? entry.Entry.StationName;
     }
 
-    private async void LongExposureSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    private void MotionBlurAlphaSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        MotionBlurAlphaValueText.Text = e.NewValue.ToString("0.00");
+        _viewModel.LongExposure.MotionBlurAlpha = e.NewValue;
+    }
+
+    private async void LongExposureGenerateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var videoPath = _viewModel.LongExposure.VideoFilePath;
+        if (videoPath is null)
         {
-            await _viewModel.LongExposure.SubmitAsync(system);
-        }
-    }
-
-    private async void LongExposureSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-    {
-        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
-        await _viewModel.LongExposure.SubmitAsync(chosen);
-    }
-
-    private async void LongExposureSubmitButton_Click(object sender, RoutedEventArgs e)
-    {
-        await _viewModel.LongExposure.SubmitAsync(null);
-    }
-
-    private async void OnLongExposureVideoSelectionRequested(LongExposureRowViewModel row)
-    {
-        var promptWindow = new VideoUploadPromptWindow { Owner = this };
-        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
-        {
+            _viewModel.LongExposure.ErrorMessage = "Select a video from the library first.";
             return;
         }
+
+        _viewModel.LongExposure.ErrorMessage = null;
+        _viewModel.LongExposure.Result = null;
 
         var processingWindow = new LongExposureProcessingWindow(_viewModel.LongExposure.GenerateAsync, videoPath) { Owner = this };
         if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
@@ -626,9 +616,134 @@ public partial class MainWindow : Window
             return;
         }
 
-        var resultsWindow = LongExposureResultsWindow.ForLongExposureResult(result, row.Target.SystemName, row.Target.ObjectName);
-        resultsWindow.Owner = this;
-        resultsWindow.ShowDialog();
+        _viewModel.LongExposure.Result = result;
+        LongExposureVariantList.Items.Clear();
+        foreach (var (_, displayName, png) in result.AllVariants)
+        {
+            LongExposureVariantList.Items.Add(new LongExposureVariantThumbnail(displayName, png, ToBitmapImage(png)));
+        }
+
+        if (LongExposureVariantList.Items.Count > 0)
+        {
+            LongExposureVariantList.SelectedIndex = 0;
+        }
+    }
+
+    private void LongExposureVariantList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        LongExposurePreviewImage.Source = LongExposureVariantList.SelectedItem is LongExposureVariantThumbnail selected
+            ? selected.Thumbnail
+            : null;
+        LongExposureSaveSelectedButton.IsEnabled = LongExposureVariantList.SelectedItem is not null;
+    }
+
+    private void LongExposureSaveSelectedButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (LongExposureVariantList.SelectedItem is not LongExposureVariantThumbnail selected)
+        {
+            return;
+        }
+
+        var (systemName, bodyOrStationName) = ResolveLongExposureNaming();
+        var directory = LongExposureFileNamer.SuggestDirectory(LongExposureOutputRoot, systemName);
+        Directory.CreateDirectory(directory);
+        var fileName = LongExposureFileNamer.SuggestFileName(systemName, bodyOrStationName, null, selected.DisplayName, ".png");
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save Long Exposure Image",
+            InitialDirectory = directory,
+            FileName = fileName,
+            Filter = "PNG Image (*.png)|*.png",
+            OverwritePrompt = true,
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            File.WriteAllBytes(dialog.FileName, selected.Png);
+        }
+    }
+
+    private void LongExposureSaveAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        var (systemName, bodyOrStationName) = ResolveLongExposureNaming();
+        var directory = LongExposureFileNamer.SuggestDirectory(LongExposureOutputRoot, systemName);
+
+        var folderDialog = new OpenFolderDialog
+        {
+            Title = "Choose a folder to save all variations",
+            InitialDirectory = Directory.Exists(directory) ? directory : LongExposureOutputRoot,
+        };
+
+        if (folderDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var targetDirectory = folderDialog.FolderName;
+        var items = LongExposureVariantList.Items.Cast<LongExposureVariantThumbnail>().ToList();
+        var plannedPaths = items
+            .Select(item => (Item: item, Path: Path.Combine(targetDirectory, LongExposureFileNamer.SuggestFileName(systemName, bodyOrStationName, null, item.DisplayName, ".png"))))
+            .ToList();
+
+        var conflicts = plannedPaths.Where(p => LongExposureFileNamer.WouldOverwrite(p.Path)).ToList();
+        if (conflicts.Count > 0)
+        {
+            var names = string.Join("\n", conflicts.Select(c => Path.GetFileName(c.Path)));
+            var result = MessageBox.Show(
+                this,
+                $"The following files already exist and will be overwritten:\n\n{names}\n\nContinue?",
+                "Overwrite existing files?",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+        }
+
+        Directory.CreateDirectory(targetDirectory);
+        foreach (var (item, path) in plannedPaths)
+        {
+            File.WriteAllBytes(path, item.Png);
+        }
+
+        MessageBox.Show(this, $"Saved {plannedPaths.Count} images to {targetDirectory}.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>Falls back to the video's own filename as the "system" for output naming when the
+    /// selected library entry wasn't tagged with one - same fallback Slit Scan's results use.</summary>
+    private (string SystemName, string? BodyOrStationName) ResolveLongExposureNaming()
+    {
+        var systemName = _viewModel.LongExposure.SystemName
+            ?? (_viewModel.LongExposure.VideoFilePath is { } path ? Path.GetFileNameWithoutExtension(path) : "Unknown");
+        return (systemName, _viewModel.LongExposure.BodyOrStationName);
+    }
+
+    private static BitmapImage ToBitmapImage(byte[] pngBytes)
+    {
+        var bitmap = new BitmapImage();
+        using var stream = new MemoryStream(pngBytes);
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private sealed class LongExposureVariantThumbnail
+    {
+        public LongExposureVariantThumbnail(string displayName, byte[] png, BitmapImage thumbnail)
+        {
+            DisplayName = displayName;
+            Png = png;
+            Thumbnail = thumbnail;
+        }
+
+        public string DisplayName { get; }
+        public byte[] Png { get; }
+        public BitmapImage Thumbnail { get; }
     }
 
     /// <summary>Slit Scan is a general effect with no system/body context of its own, so unlike

@@ -460,6 +460,5 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _journalMonitor.Dispose();
         Stations.Dispose();
         JetCone.Dispose();
-        LongExposure.Dispose();
     }
 }
