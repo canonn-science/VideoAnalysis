@@ -581,6 +581,7 @@ else
         JetConeReticleImage.Source = ToBitmapImage(result.ReticleCropPng);
         JetConeBottomLeftImage.Source = ToBitmapImage(result.BottomLeftCropPng);
         JetConeDistanceTextBox.Text = prefill is double d ? d.ToString("0.##", CultureInfo.InvariantCulture) : string.Empty;
+        JetConeSendToCanonnButton.Content = "Send to Canonn";
     }
 
     private async void JetConeSaveMeasurementButton_Click(object sender, RoutedEventArgs e)
@@ -609,12 +610,34 @@ else
         _viewModel.JetCone.SaveMeasurement();
         _viewModel.JetCone.ResetReview();
         JetConeDistanceTextBox.Text = string.Empty;
+        JetConeSendToCanonnButton.Content = "Send to Canonn";
     }
 
     private void JetConeDiscardReviewButton_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.JetCone.ResetReview();
         JetConeDistanceTextBox.Text = string.Empty;
+        JetConeSendToCanonnButton.Content = "Send to Canonn";
+    }
+
+    /// <summary>Sends the currently reviewed measurement to Canonn - independent of "Save
+    /// Measurement", mirroring Ring Rotation's results dialog where sending and saving to history
+    /// are separate actions.</summary>
+    private async void JetConeSendToCanonnButton_Click(object sender, RoutedEventArgs e)
+    {
+        var text = JetConeDistanceTextBox.Text.Trim();
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || value < 0)
+        {
+            _viewModel.JetCone.ErrorMessage = "Enter a valid, non-negative distance in light seconds.";
+            return;
+        }
+
+        _viewModel.JetCone.DistanceLs = value;
+        await _viewModel.JetCone.SubmitReviewToCanonnAsync();
+        if (_viewModel.JetCone.IsSubmittedToCanonn)
+        {
+            JetConeSendToCanonnButton.Content = "Sent to Canonn ✓";
+        }
     }
 
     private async Task OfferClaudeApiKeySetupAsync()

@@ -19,6 +19,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private readonly SpanshClient _spanshClient = new();
     private readonly CanonnClient _canonnClient = new();
+    private readonly JetConeCanonnClient _jetConeCanonnClient = new();
     private readonly MeasurementCsvStore _measurementStore = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly SecretStore _secretStore = new();
@@ -47,7 +48,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _longExposureOutputDirectory = settings.LongExposureOutputDirectory;
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
         Stations = new StationViewModel();
-        JetCone = new JetConeViewModel();
+        JetCone = new JetConeViewModel(SubmitJetLengthRecordsToCanonnAsync);
         LongExposure = new LongExposureViewModel();
         SlitScan = new SlitScanViewModel();
         VideoLibrary = new VideoLibraryViewModel(_videoLibraryStore);
@@ -579,6 +580,9 @@ else
         }, ct);
     }
 
+    private Task SubmitJetLengthRecordsToCanonnAsync(IReadOnlyList<JetLengthRecord> records, CancellationToken ct)
+        => _jetConeCanonnClient.SubmitAsync(records, CommanderName, ct);
+
     private async Task LoadSubmittedFromCanonnAsync()
     {
         try
@@ -597,6 +601,7 @@ else
     {
         _spanshClient.Dispose();
         _canonnClient.Dispose();
+        _jetConeCanonnClient.Dispose();
         _journalMonitor.Dispose();
         Stations.Dispose();
         JetCone.Dispose();

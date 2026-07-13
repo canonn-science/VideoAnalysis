@@ -22,10 +22,12 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
     private readonly SpanshClient _spanshClient = new();
     private readonly JetLengthCsvStore _jetLengthStore = new();
     private readonly SecretStore _secretStore = new();
+    private readonly Func<IReadOnlyList<JetLengthRecord>, CancellationToken, Task> _submitToCanonn;
 
-    public JetConeViewModel()
+    public JetConeViewModel(Func<IReadOnlyList<JetLengthRecord>, CancellationToken, Task> submitToCanonn)
     {
-        Measurements = new JetLengthMeasurementsViewModel(_jetLengthStore);
+        _submitToCanonn = submitToCanonn;
+        Measurements = new JetLengthMeasurementsViewModel(_jetLengthStore, submitToCanonn);
     }
 
     private string _systemQuery = string.Empty;
@@ -38,6 +40,9 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
     private double? _originalPrefillDistanceLs;
     private double? _distanceLs;
     private string? _distanceSourceLabel;
+    private bool _isSubmittingToCanonn;
+    private bool _isSubmittedToCanonn;
+    private string? _canonnSubmitError;
 
     public string SystemQuery
     {
@@ -100,6 +105,7 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
                 }
 
                 OnPropertyChanged(nameof(CanAnalyze));
+                OnPropertyChanged(nameof(CanSubmitReviewToCanonn));
             }
         }
     }
@@ -141,6 +147,72 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
     {
         get => _distanceSourceLabel;
         set => SetField(ref _distanceSourceLabel, value);
+    }
+
+    /// <summary>Whether the reviewed measurement can be sent to Canonn right now - a target must be
+    /// selected and there mustn't already be a submission in flight/done for this review. Doesn't
+    /// also require <see cref="DistanceLs"/> to already be set: like <see cref="SaveMeasurement"/>,
+    /// the value is read from the (unbound) distance text box and validated at click time, so an
+    /// OCR reading that failed to prefill anything doesn't leave this button stuck disabled.</summary>
+    public bool CanSubmitReviewToCanonn => SelectedTarget is not null && !IsSubmittingToCanonn && !IsSubmittedToCanonn;
+
+    public bool IsSubmittingToCanonn
+    {
+        get => _isSubmittingToCanonn;
+        private set
+        {
+            if (SetField(ref _isSubmittingToCanonn, value))
+            {
+                OnPropertyChanged(nameof(CanSubmitReviewToCanonn));
+            }
+        }
+    }
+
+    public bool IsSubmittedToCanonn
+    {
+        get => _isSubmittedToCanonn;
+        private set
+        {
+            if (SetField(ref _isSubmittedToCanonn, value))
+            {
+                OnPropertyChanged(nameof(CanSubmitReviewToCanonn));
+            }
+        }
+    }
+
+    public string? CanonnSubmitError
+    {
+        get => _canonnSubmitError;
+        private set => SetField(ref _canonnSubmitError, value);
+    }
+
+    /// <summary>Sends the currently reviewed measurement to Canonn independently of
+    /// <see cref="SaveMeasurement"/> - matches Ring Rotation's "Send to Canonn" button being
+    /// available on its results dialog whether or not the user also saves to history.</summary>
+    public async Task SubmitReviewToCanonnAsync(CancellationToken ct = default)
+    {
+        if (!CanSubmitReviewToCanonn)
+        {
+            return;
+        }
+
+        IsSubmittingToCanonn = true;
+        CanonnSubmitError = null;
+        try
+        {
+            var record = BuildRecord();
+            await _submitToCanonn(new[] { record }, ct).ConfigureAwait(true);
+            IsSubmittedToCanonn = true;
+        }
+        catch (Exception ex)
+        {
+            AppLog.LogError("JetCone.SubmitReviewToCanonn", ex);
+            CanonnSubmitError = $"Send failed: {ex.Message}";
+        }
+        finally
+        {
+            IsSubmittingToCanonn = false;
+        }
     }
 
     public bool HasClaudeApiKey => _secretStore.TryGetClaudeApiKey(out _);
@@ -288,6 +360,8 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
         _originalPrefillDistanceLs = prefillDistanceLs;
         DistanceLs = prefillDistanceLs;
         DistanceSourceLabel = sourceLabel;
+        IsSubmittedToCanonn = false;
+        CanonnSubmitError = null;
     }
 
     /// <summary>True if the user changed <see cref="DistanceLs"/> from what was originally
@@ -303,19 +377,32 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
         _originalPrefillDistanceLs = null;
         DistanceLs = null;
         DistanceSourceLabel = null;
+        IsSubmittedToCanonn = false;
+        CanonnSubmitError = null;
     }
 
     /// <summary>Requires <see cref="SelectedTarget"/> and <see cref="DistanceLs"/> to already be
     /// set - callers should only enable the Save action once both are available.</summary>
     public void SaveMeasurement()
     {
+        var record = BuildRecord();
+        record.Submitted = IsSubmittedToCanonn;
+        _jetLengthStore.Append(record);
+        Measurements.Refresh();
+    }
+
+    /// <summary>Builds a <see cref="JetLengthRecord"/> from the current review state - shared by
+    /// <see cref="SaveMeasurement"/> and <see cref="SubmitReviewToCanonnAsync"/>, since sending to
+    /// Canonn doesn't require having saved to history first (same as Ring Rotation).</summary>
+    private JetLengthRecord BuildRecord()
+    {
         if (SelectedTarget is not { } selectedTarget || DistanceLs is not double distance)
         {
-            throw new InvalidOperationException("A target and confirmed distance are required to save a measurement.");
+            throw new InvalidOperationException("A target and confirmed distance are required.");
         }
 
         var target = selectedTarget.Target;
-        _jetLengthStore.Append(new JetLengthRecord
+        return new JetLengthRecord
         {
             SystemName = target.SystemName,
             BodyName = target.BodyName,
@@ -340,8 +427,7 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
             SpectralClass = target.SpectralClass,
             SurfaceTemperature = target.SurfaceTemperature,
             UpdateTime = target.UpdateTime,
-        });
-        Measurements.Refresh();
+        };
     }
 
     public string CsvPath => _jetLengthStore.CsvPath;

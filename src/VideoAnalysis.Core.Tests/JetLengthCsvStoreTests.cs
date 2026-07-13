@@ -52,14 +52,36 @@ public class JetLengthCsvStoreTests : IDisposable
     }
 
     [Fact]
-    public void WrittenHeader_MatchesNeutronJetColumnNames()
+    public void WrittenHeader_MatchesNeutronJetColumnNamesPlusSubmittedFlag()
     {
         var store = new JetLengthCsvStore(CsvPath);
         store.Append(new JetLengthRecord { SystemName = "S", BodyName = "B", Distance = 1.0 });
 
         var headerLine = File.ReadLines(CsvPath).First();
         Assert.Equal(
-            "systemName,bodyName,distance,absoluteMagnitude,age,argOfPeriapsis,ascendingNode,axialTilt,bodyId,distanceToArrival,luminosity,mainStar,meanAnomaly,orbitalEccentricity,orbitalInclination,orbitalPeriod,rotationalPeriod,semiMajorAxis,solarMasses,solarRadius,spectralClass,surfaceTemperature,updateTime",
+            "systemName,bodyName,distance,absoluteMagnitude,age,argOfPeriapsis,ascendingNode,axialTilt,bodyId,distanceToArrival,luminosity,mainStar,meanAnomaly,orbitalEccentricity,orbitalInclination,orbitalPeriod,rotationalPeriod,semiMajorAxis,solarMasses,solarRadius,spectralClass,surfaceTemperature,updateTime,submitted",
             headerLine);
+    }
+
+    [Fact]
+    public void Append_ThenReadAll_RoundTripsSubmittedFlag()
+    {
+        var store = new JetLengthCsvStore(CsvPath);
+        store.Append(new JetLengthRecord { SystemName = "S", BodyName = "B", Distance = 1.0, Submitted = true });
+
+        var record = Assert.Single(store.ReadAll());
+        Assert.True(record.Submitted);
+    }
+
+    [Fact]
+    public void ReadAll_DefaultsSubmittedToFalse_ForRowsWrittenBeforeColumnExisted()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(CsvPath,
+            "systemName,bodyName,distance\nOld System,Old Body,2.5\n");
+
+        var store = new JetLengthCsvStore(CsvPath);
+        var record = Assert.Single(store.ReadAll());
+        Assert.False(record.Submitted);
     }
 }
