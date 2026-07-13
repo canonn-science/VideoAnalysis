@@ -295,70 +295,140 @@
 
             <TabItem Header="Jet Cone Length" DataContext="{Binding JetCone}">
                 <TabControl Margin="0,8,0,0">
-                    <TabItem Header="System">
-                        <Grid Margin="12">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
+                    <TabItem Header="Measure">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <Grid Margin="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ui:AutoSuggestBox x:Name="JetConeSystemSearchBox" Grid.Column="0"
-                                                   FontSize="16"
-                                                   PlaceholderText="Type at least 3 characters of a system name…"
-                                                   Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                   ItemsSource="{Binding Suggestions}"
-                                                   DisplayMemberPath="Name"
-                                                   TextMemberPath="Name"
-                                                   TextChanged="JetConeSystemSearchBox_TextChanged"
-                                                   QuerySubmitted="JetConeSystemSearchBox_QuerySubmitted"
-                                                   SuggestionChosen="JetConeSystemSearchBox_SuggestionChosen"/>
-                                <Button Grid.Column="1" Content="Submit" Margin="8,0,0,0" Padding="16,8"
-                                        FontSize="16" Background="{StaticResource CanonnAccentBrush}"
-                                        Foreground="White" Click="JetConeSubmitButton_Click"/>
+                                <Border Grid.Row="0" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                        BorderThickness="1" Padding="14">
+                                    <StackPanel>
+                                        <TextBlock Text="How to film it" FontWeight="SemiBold" FontSize="14"
+                                                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,8"/>
+                                        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}" LineHeight="20"
+                                                   Text="Fly out away from the neutron star parallel to the jets. Turn around and fly directly towards the jet, adjusting your approach to ensure that the end of a jet cone is the only part visible. Fly as direct as you can to the cone, keeping the speed low enough that you can see the distance counter change 1 hundredth of a light second at a time. Keep speed constant. Stop recording when the Frameshift Turbulence begins."/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid Grid.Row="1" Margin="0,16,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                            Height="220">
+                                        <Image x:Name="JetConePreviewImage" Stretch="Uniform"/>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Top">
+                                        <TextBlock FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource CanonnTextBrightBrush}"
+                                                   Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Grid.Row="2" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,12,0,0"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
+
+                                <StackPanel Grid.Row="3" Margin="0,16,0,0">
+                                    <TextBlock Text="Target" FontWeight="SemiBold" Margin="0,0,0,4"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ui:AutoSuggestBox x:Name="JetConeSystemSearchBox" Grid.Column="0"
+                                                           PlaceholderText="Auto-filled from the selected video, or type a system name…"
+                                                           Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                           ItemsSource="{Binding Suggestions}"
+                                                           DisplayMemberPath="Name"
+                                                           TextMemberPath="Name"
+                                                           TextChanged="JetConeSystemSearchBox_TextChanged"
+                                                           QuerySubmitted="JetConeSystemSearchBox_QuerySubmitted"
+                                                           SuggestionChosen="JetConeSystemSearchBox_SuggestionChosen"/>
+                                        <Button Grid.Column="1" Content="Look Up" Margin="8,0,0,0" Padding="12,6"
+                                                Click="JetConeSubmitButton_Click"/>
+                                    </Grid>
+
+                                    <ProgressBar IsIndeterminate="True" Height="4" Margin="0,8,0,0"
+                                                 Foreground="{StaticResource CanonnAccentBrush}"
+                                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+
+                                    <TextBlock Margin="0,8,0,4" FontSize="12" Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="{Binding ResolvedSystemName, StringFormat='Neutron stars and white dwarfs in {0}:'}"
+                                               Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
+                                    <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                              ItemsSource="{Binding Targets}" DisplayMemberPath="Display"
+                                              SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"/>
+                                </StackPanel>
+
+                                <Button Grid.Row="4" Content="Analyze Video" Padding="24,8" Margin="0,16,0,0"
+                                        HorizontalAlignment="Left" FontSize="16"
+                                        Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                        Click="JetConeAnalyzeButton_Click"/>
+
+                                <Grid Grid.Row="5" Margin="0,20,0,0" Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Text="Confirm the distance reading" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource CanonnAccentBrush}"/>
+                                    <TextBlock Grid.Row="1" Margin="0,4,0,0" TextWrapping="Wrap" FontSize="13"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Frame captured at the moment the FSD warning overlay appeared. Check the value against the reticle readout below and correct it if needed."/>
+
+                                    <Border Grid.Row="2" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                            Margin="0,12,0,0" Padding="4" HorizontalAlignment="Left">
+                                        <Image x:Name="JetConeReticleImage" Stretch="Uniform" MaxHeight="360" MaxWidth="640"/>
+                                    </Border>
+
+                                    <Border Grid.Row="3" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                            Margin="0,8,0,0" Padding="4" HorizontalAlignment="Left">
+                                        <Image x:Name="JetConeBottomLeftImage" Stretch="Uniform" MaxHeight="140" MaxWidth="640"/>
+                                    </Border>
+
+                                    <Grid Grid.Row="4" Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="Distance (Ls):" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,10,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBox x:Name="JetConeDistanceTextBox" Width="140" HorizontalAlignment="Left" FontSize="16"/>
+                                            <TextBlock FontSize="11" Margin="0,4,0,0"
+                                                       Foreground="{StaticResource CanonnTextMutedBrush}"
+                                                       Text="{Binding DistanceSourceLabel}"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Content="Discard" Padding="16,8" Margin="0,0,8,0"
+                                                Click="JetConeDiscardReviewButton_Click"/>
+                                        <Button Grid.Column="3" Content="Save Measurement" Padding="24,8"
+                                                Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                                Click="JetConeSaveMeasurementButton_Click"/>
+                                    </Grid>
+                                </Grid>
                             </Grid>
-
-                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
-                                       TextWrapping="Wrap"
-                                       Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
-
-                            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
-                                         Foreground="{StaticResource CanonnAccentBrush}"
-                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
-                                       Foreground="{StaticResource CanonnAccentBrush}"
-                                       Text="{Binding ResolvedSystemName, StringFormat='Neutron stars and white dwarfs in {0}'}"
-                                       Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
-
-                            <DataGrid Grid.Row="4" ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
-                                      IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                                      Background="{StaticResource CanonnSurface2Brush}"
-                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
-                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Type" Binding="{Binding BodyType}" Width="Auto"/>
-                                    <DataGridTemplateColumn Header="Video" Width="Auto">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
+                        </ScrollViewer>
                     </TabItem>
 
                     <TabItem Header="Measurement History" DataContext="{Binding Measurements}">

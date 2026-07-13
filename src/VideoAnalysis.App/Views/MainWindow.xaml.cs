@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Windows;
@@ -43,9 +44,9 @@ public partial class MainWindow : Window
         _viewModel.VideoLibrary.UploadRequested += OnLibraryUploadRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
-        _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForSlitScan;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForLongExposure;
+        _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForJetCone;
         _viewModel.VideoLibrary.SelectFirstEntryIfAny();
         Closed += (_, _) =>
         {
@@ -467,13 +468,69 @@ public partial class MainWindow : Window
     /// mostly a fallback for when no key is configured yet.</summary>
     private const double TrustedLocalConfidenceThreshold = 0.55;
 
-    private async void OnJetConeVideoSelectionRequested(JetConeRowViewModel row)
+    /// <summary>Jet Cone still needs a specific neutron star/white dwarf's full physical data for
+    /// the CSV (age, mass, orbital elements, ...), which only Spansh has - so selecting a library
+    /// video auto-resolves its tagged system into the compact target picker (preferring the
+    /// tagged body, if any) rather than requiring the user to search and pick it every time.</summary>
+    private async void OnLibraryEntrySelectedForJetCone(VideoLibraryEntryViewModel entry)
     {
-        var promptWindow = new VideoUploadPromptWindow { Owner = this };
-        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        if (entry.IsFileMissing)
         {
             return;
         }
+
+        _viewModel.JetCone.ErrorMessage = null;
+        _viewModel.JetCone.ResetReview();
+        _viewModel.JetCone.VideoFilePath = entry.FilePath;
+        JetConePreviewImage.Source = null;
+
+        if (entry.Entry.SystemId64 is long id64)
+        {
+            var syntheticSystem = new Core.Spansh.Models.SpanshSearchSystem
+            {
+                Id64 = id64,
+                Name = entry.Entry.SystemName ?? string.Empty,
+                X = entry.Entry.SystemX ?? 0,
+                Y = entry.Entry.SystemY ?? 0,
+                Z = entry.Entry.SystemZ ?? 0,
+            };
+            await _viewModel.JetCone.SubmitAsync(syntheticSystem, preferredBodyName: entry.Entry.BodyName);
+        }
+
+        byte[]? previewFrame;
+        try
+        {
+            previewFrame = await _viewModel.JetCone.LoadPreviewFrameAsync(CancellationToken.None);
+        }
+        catch
+        {
+            previewFrame = null;
+        }
+
+        // The user may have selected a different video while this was loading.
+        if (_viewModel.JetCone.VideoFilePath == entry.FilePath && previewFrame is not null)
+        {
+            JetConePreviewImage.Source = ToBitmapImage(previewFrame);
+        }
+    }
+
+    private async void JetConeAnalyzeButton_Click(object sender, RoutedEventArgs e)
+    {
+        var videoPath = _viewModel.JetCone.VideoFilePath;
+        if (videoPath is null)
+        {
+            _viewModel.JetCone.ErrorMessage = "Select a video from the library first.";
+            return;
+        }
+
+        if (_viewModel.JetCone.SelectedTarget is null)
+        {
+            _viewModel.JetCone.ErrorMessage = "Pick a neutron star or white dwarf target first.";
+            return;
+        }
+
+        _viewModel.JetCone.ErrorMessage = null;
+        _viewModel.JetCone.ResetReview();
 
         var processingWindow = new JetConeProcessingWindow(_viewModel.JetCone.AnalyzeVideoAsync, videoPath) { Owner = this };
         if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
@@ -492,12 +549,7 @@ public partial class MainWindow : Window
 
         if (!result.OnsetDetected)
         {
-            await new ContentDialog
-            {
-                Title = "Warning overlay not found",
-                Content = "Couldn't find the \"FSD OPERATING / BEYOND SAFETY LIMITS\" warning in this recording. Make sure it shows the approach all the way through the warning appearing.",
-                CloseButtonText = "OK",
-            }.ShowAsync();
+            _viewModel.JetCone.ErrorMessage = "Couldn't find the \"FSD OPERATING / BEYOND SAFETY LIMITS\" warning in this recording. Make sure it shows the approach all the way through the warning appearing.";
             return;
         }
 
@@ -521,18 +573,44 @@ public partial class MainWindow : Window
             }
         }
 
-        var reviewWindow = new JetConeReviewWindow(result.ReticleCropPng, result.BottomLeftCropPng, prefill, sourceLabel) { Owner = this };
-        if (reviewWindow.ShowDialog() != true)
+        _viewModel.JetCone.BeginReview(result, prefill, sourceLabel);
+        JetConeReticleImage.Source = ToBitmapImage(result.ReticleCropPng);
+        JetConeBottomLeftImage.Source = ToBitmapImage(result.BottomLeftCropPng);
+        JetConeDistanceTextBox.Text = prefill is double d ? d.ToString("0.##", CultureInfo.InvariantCulture) : string.Empty;
+    }
+
+    private async void JetConeSaveMeasurementButton_Click(object sender, RoutedEventArgs e)
+    {
+        var text = JetConeDistanceTextBox.Text.Trim();
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || value < 0)
         {
+            _viewModel.JetCone.ErrorMessage = "Enter a valid, non-negative distance in light seconds.";
             return;
         }
 
-        if (reviewWindow.UserCorrectedValue && !_viewModel.JetCone.HasClaudeApiKey)
+        if (_viewModel.JetCone.SelectedTarget is null)
+        {
+            _viewModel.JetCone.ErrorMessage = "Pick a neutron star or white dwarf target first.";
+            return;
+        }
+
+        _viewModel.JetCone.ErrorMessage = null;
+        _viewModel.JetCone.DistanceLs = value;
+
+        if (_viewModel.JetCone.DistanceWasCorrected && !_viewModel.JetCone.HasClaudeApiKey)
         {
             await OfferClaudeApiKeySetupAsync();
         }
 
-        _viewModel.JetCone.SaveMeasurement(row, reviewWindow.DistanceLs);
+        _viewModel.JetCone.SaveMeasurement();
+        _viewModel.JetCone.ResetReview();
+        JetConeDistanceTextBox.Text = string.Empty;
+    }
+
+    private void JetConeDiscardReviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.JetCone.ResetReview();
+        JetConeDistanceTextBox.Text = string.Empty;
     }
 
     private async Task OfferClaudeApiKeySetupAsync()
