@@ -87,7 +87,15 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
     public JetConeRowViewModel? SelectedTarget
     {
         get => _selectedTarget;
-        set => SetField(ref _selectedTarget, value);
+        set
+        {
+            if (SetField(ref _selectedTarget, value) && value is not null)
+            {
+                // Picking a target resolves whatever prompted the user in the first place (no
+                // body tagged, a stale/mismatched one, ...) - don't leave that message lingering.
+                ErrorMessage = null;
+            }
+        }
     }
 
     public JetLengthMeasurementsViewModel Measurements { get; }
@@ -223,9 +231,21 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
             {
                 ErrorMessage = $"\"{resolved.Name}\" has no neutron stars or white dwarfs.";
             }
-            else if (preferredBodyName is not null)
+            else
             {
-                SelectedTarget = Targets.FirstOrDefault(t => t.BodyName == preferredBodyName);
+                if (preferredBodyName is not null)
+                {
+                    SelectedTarget = Targets.FirstOrDefault(t => t.BodyName == preferredBodyName);
+                }
+
+                // A measurement can't be saved without a target - prompt for one now rather than
+                // letting the user discover it's missing only after analyzing the video.
+                if (SelectedTarget is null)
+                {
+                    ErrorMessage = preferredBodyName is null
+                        ? "This video isn't tagged with a body - pick the neutron star or white dwarf it shows from the dropdown below."
+                        : $"This video's tagged body (\"{preferredBodyName}\") wasn't found in {resolved.Name} - pick the correct one from the dropdown below.";
+                }
             }
         }
         catch (Exception ex)
