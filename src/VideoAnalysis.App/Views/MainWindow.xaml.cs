@@ -11,8 +11,10 @@ using ModernWpf.Controls;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.App.ViewModels;
 using VideoAnalysis.Core.Diagnostics;
+using VideoAnalysis.Core.Domain;
 using VideoAnalysis.Core.Storage;
 using VideoAnalysis.Core.Updates;
+using VideoAnalysis.Core.VideoAnalysis;
 using VideoAnalysis.Core.VideoAnalysis.LongExposure;
 
 namespace VideoAnalysis.App.Views;
@@ -40,10 +42,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _viewModel;
-        _viewModel.VideoSelectionRequested += OnVideoSelectionRequested;
         _viewModel.VideoLibrary.UploadRequested += OnLibraryUploadRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
-        _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
+        _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForRingRotation;
+        _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForStationRotation;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForSlitScan;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForLongExposure;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForJetCone;
@@ -170,31 +172,44 @@ public partial class MainWindow : Window
         }.ShowAsync();
     }
 
-    private async void OnVideoSelectionRequested(RingRowViewModel row)
+    /// <summary>Only reachable once <see cref="MainViewModel.CanAnalyzeRing"/> gates the button
+    /// enabled, so a non-missing <see cref="MainViewModel.ActiveLibraryVideo"/> and a
+    /// <see cref="MainViewModel.SelectedRing"/> are already guaranteed.</summary>
+    private async void RingRotationAnalyzeButton_Click(object sender, RoutedEventArgs e)
     {
-        string videoPath;
-        var libraryEntry = _viewModel.ActiveLibraryVideo;
-
-        if (libraryEntry is not null && !libraryEntry.IsFileMissing)
+        if (_viewModel.SelectedRing is not { } row || _viewModel.ActiveLibraryVideo is not { IsFileMissing: false } libraryEntry)
         {
-            // The library becomes the primary source for a working video once it has one active -
-            // no need to prompt for a fresh file pick.
-            videoPath = libraryEntry.FilePath;
+            return;
         }
-        else
+
+        var videoPath = libraryEntry.FilePath;
+
+        // The filename is usually the strongest signal that this is the right video for the
+        // selected system - if it doesn't mention it at all, double-check before tagging/
+        // analyzing, since that combination could easily be an accidental mismatch.
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(videoPath);
+        if (!FilenameSystemMatcher.IsNameInFilename(row.Ring.SystemName, fileNameWithoutExtension))
         {
-            var promptWindow = new VideoUploadPromptWindow { Owner = this };
-            if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string pickedPath)
+            var mismatchResult = await new ContentDialog
+            {
+                Title = "System doesn't match filename",
+                Content = $"The selected system \"{row.Ring.SystemName}\" doesn't appear in this video's filename (\"{Path.GetFileName(videoPath)}\"). Continue anyway?",
+                PrimaryButtonText = "Continue",
+                CloseButtonText = "Cancel",
+            }.ShowAsync();
+
+            if (mismatchResult != ContentDialogResult.Primary)
             {
                 return;
             }
-
-            videoPath = pickedPath;
-            // Funnel every picked video through the library going forward, pre-filled from what
-            // this ring row already knows (system/body/ring) so the user only confirms rather
-            // than re-searching Spansh.
-            libraryEntry = PromptAddVideoToLibrary(videoPath, row);
         }
+
+        // Tag the video with whatever system/body/ring is currently selected, so future
+        // selections of it auto-populate correctly even if it wasn't (fully) tagged before.
+        _viewModel.VideoLibrary.UpdateSystemBodyRing(
+            libraryEntry,
+            row.Ring.SystemName, row.Ring.SystemId64, row.Ring.SystemX, row.Ring.SystemY, row.Ring.SystemZ,
+            row.Ring.BodyName, row.Ring.RingName);
 
         // Kick this off now rather than waiting for VideoProcessingWindow's Loaded event, so the
         // shell round-trip overlaps window construction/layout instead of starting after it.
@@ -208,7 +223,7 @@ public partial class MainWindow : Window
             var result = processingWindow.Result;
             var finalVideoPath = processingWindow.FinalVideoPath;
 
-            if (libraryEntry is not null && !string.Equals(finalVideoPath, videoPath, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(finalVideoPath, videoPath, StringComparison.OrdinalIgnoreCase))
             {
                 // The in-place ring-rename flow (VideoRenamePromptWindow/VideoFileNamer) may have
                 // renamed the source file - keep the library entry pointing at the real file
@@ -224,10 +239,7 @@ public partial class MainWindow : Window
             if (resultsWindow.ShowDialog() == true)
             {
                 _viewModel.SaveMeasurement(row, result, finalVideoPath, resultsWindow.SubmittedToCanonn);
-                if (libraryEntry is not null)
-                {
-                    _viewModel.VideoLibrary.MarkAnalyzed(libraryEntry, "RingRotation");
-                }
+                _viewModel.VideoLibrary.MarkAnalyzed(libraryEntry, "RingRotation");
             }
         }
         else if (processingWindow.FailureMessage is not null)
@@ -258,34 +270,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Shows the metadata modal for a freshly picked video and, if the user confirms,
-    /// adds it to the library. <paramref name="prefillRow"/> supplies known system/body/ring
-    /// values (from a Ring Rotation row) so the user doesn't have to re-search Spansh; absent
-    /// that, the modal auto-detects the system from the filename (falling back to journal
-    /// history) once it's shown - see <see cref="VideoUploadMetadataWindow"/>'s constructor doc.</summary>
-    private VideoLibraryEntryViewModel? PromptAddVideoToLibrary(string videoPath, RingRowViewModel? prefillRow = null)
+    /// adds it to the library - the modal auto-detects the system from the filename (falling back
+    /// to journal history) once it's shown, see <see cref="VideoUploadMetadataWindow"/>'s
+    /// constructor doc.</summary>
+    private VideoLibraryEntryViewModel? PromptAddVideoToLibrary(string videoPath)
     {
-        VideoUploadMetadataViewModel metadataViewModel;
-        if (prefillRow is null)
-        {
-            metadataViewModel = new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor);
-        }
-        else
-        {
-            metadataViewModel = new VideoUploadMetadataViewModel(
-                _viewModel.SpanshClient,
-                _viewModel.JournalMonitor,
-                prefillSystemName: prefillRow.Ring.SystemName,
-                prefillSystemId64: prefillRow.Ring.SystemId64,
-                prefillSystemX: prefillRow.Ring.SystemX,
-                prefillSystemY: prefillRow.Ring.SystemY,
-                prefillSystemZ: prefillRow.Ring.SystemZ,
-                prefillBodyName: prefillRow.Ring.BodyName,
-                prefillRingName: prefillRow.Ring.RingName);
-        }
-
+        var metadataViewModel = new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor);
         var metadataWindow = new VideoUploadMetadataWindow(
             metadataViewModel, videoPath,
-            autoDetectFromFilename: prefillRow is null,
+            autoDetectFromFilename: true,
             organizeBySystemFolder: _viewModel.OrganizeRenamedVideosBySystem)
         { Owner = this };
         if (metadataWindow.ShowDialog() != true || metadataWindow.ResultEntry is not { } entry)
@@ -337,10 +330,12 @@ public partial class MainWindow : Window
         await _viewModel.Stations.SubmitAsync(null);
     }
 
-    private async void OnStationVideoSelectionRequested(StationRowViewModel row)
+    /// <summary>Only reachable once <see cref="StationViewModel.CanAnalyze"/> gates the button
+    /// enabled, so a video and a <see cref="StationViewModel.SelectedStation"/> are already
+    /// guaranteed.</summary>
+    private async void StationAnalyzeButton_Click(object sender, RoutedEventArgs e)
     {
-        var promptWindow = new VideoUploadPromptWindow { Owner = this };
-        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        if (_viewModel.Stations.SelectedStation is not { } row || _viewModel.Stations.VideoFilePath is not { } videoPath)
         {
             return;
         }
@@ -846,6 +841,84 @@ public partial class MainWindow : Window
         public string DisplayName { get; }
         public byte[] Png { get; }
         public BitmapImage Thumbnail { get; }
+    }
+
+    /// <summary>Ring Rotation's system/ring auto-population from a selected library video is
+    /// already handled by <see cref="MainViewModel.OnLibraryEntrySelected"/> (private, wired
+    /// internally) - this only needs to refresh the preview frame shown alongside it.</summary>
+    private async void OnLibraryEntrySelectedForRingRotation(VideoLibraryEntryViewModel entry)
+    {
+        RingRotationPreviewImage.Source = null;
+        if (entry.IsFileMissing)
+        {
+            return;
+        }
+
+        byte[]? previewFrame;
+        try
+        {
+            previewFrame = await VideoFrameReader.ReadRepresentativeFrameAsync(entry.FilePath);
+        }
+        catch
+        {
+            previewFrame = null;
+        }
+
+        // The user may have selected a different video while this was loading.
+        if (_viewModel.ActiveLibraryVideo == entry && previewFrame is not null)
+        {
+            RingRotationPreviewImage.Source = ToBitmapImage(previewFrame);
+        }
+    }
+
+    /// <summary>Station Rotation still needs a specific station's full physical data (body
+    /// radius/rotation/inclination, ...) for the CSV, which only Spansh has - so selecting a
+    /// library video auto-resolves its tagged system into the grid (preferring the tagged
+    /// station, if any) rather than requiring the user to search and pick it every time.</summary>
+    private async void OnLibraryEntrySelectedForStationRotation(VideoLibraryEntryViewModel entry)
+    {
+        if (entry.IsFileMissing)
+        {
+            return;
+        }
+
+        _viewModel.Stations.ErrorMessage = null;
+        _viewModel.Stations.VideoFilePath = entry.FilePath;
+        StationPreviewImage.Source = null;
+
+        if (entry.Entry.SystemId64 is long id64)
+        {
+            var syntheticSystem = new Core.Spansh.Models.SpanshSearchSystem
+            {
+                Id64 = id64,
+                Name = entry.Entry.SystemName ?? string.Empty,
+                X = entry.Entry.SystemX ?? 0,
+                Y = entry.Entry.SystemY ?? 0,
+                Z = entry.Entry.SystemZ ?? 0,
+            };
+            await _viewModel.Stations.SubmitAsync(syntheticSystem, preferredStationName: entry.Entry.StationName);
+        }
+        else
+        {
+            _viewModel.Stations.ErrorMessage =
+                "This video isn't tagged with a system - search for one above, then pick its station below.";
+        }
+
+        byte[]? previewFrame;
+        try
+        {
+            previewFrame = await VideoFrameReader.ReadRepresentativeFrameAsync(entry.FilePath);
+        }
+        catch
+        {
+            previewFrame = null;
+        }
+
+        // The user may have selected a different video while this was loading.
+        if (_viewModel.Stations.VideoFilePath == entry.FilePath && previewFrame is not null)
+        {
+            StationPreviewImage.Source = ToBitmapImage(previewFrame);
+        }
     }
 
     /// <summary>Slit Scan is a general effect with no system/body context of its own, so unlike

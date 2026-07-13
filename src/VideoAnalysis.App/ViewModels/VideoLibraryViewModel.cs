@@ -156,6 +156,23 @@ public sealed class VideoLibraryViewModel : ObservableObject
         entry.NotifyEntryChanged();
     }
 
+    /// <summary>Tags an entry with a confirmed system/body/ring - e.g. once Ring Rotation's picker
+    /// resolves them, so future selections of the same video auto-populate correctly.</summary>
+    public void UpdateSystemBodyRing(
+        VideoLibraryEntryViewModel entry, string systemName, long systemId64, double systemX, double systemY, double systemZ,
+        string bodyName, string ringName)
+    {
+        _store.UpdateSystemBodyRing(entry.Id, systemName, systemId64, systemX, systemY, systemZ, bodyName, ringName);
+        entry.Entry.SystemName = systemName;
+        entry.Entry.SystemId64 = systemId64;
+        entry.Entry.SystemX = systemX;
+        entry.Entry.SystemY = systemY;
+        entry.Entry.SystemZ = systemZ;
+        entry.Entry.BodyName = bodyName;
+        entry.Entry.RingName = ringName;
+        entry.NotifyEntryChanged();
+    }
+
     public void MarkAnalyzed(VideoLibraryEntryViewModel entry, string tabId)
     {
         _store.MarkAnalyzed(entry.Id, tabId);

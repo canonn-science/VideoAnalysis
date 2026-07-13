@@ -64,18 +64,40 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                        Height="160">
+                                    <Image x:Name="RingRotationPreviewImage" Stretch="Uniform"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Top">
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"
+                                               Text="{Binding ActiveLibraryVideo.FileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
+                                </StackPanel>
+                            </Grid>
+
                             <!-- Search row -->
-                            <Grid Grid.Row="0">
+                            <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <ui:AutoSuggestBox x:Name="SystemSearchBox" Grid.Column="0"
                                                    FontSize="16"
-                                                   PlaceholderText="Type at least 3 characters of a system name…"
+                                                   PlaceholderText="Auto-filled from the selected video, or type a system name…"
                                                    Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                    ItemsSource="{Binding Suggestions}"
                                                    DisplayMemberPath="Name"
@@ -88,45 +110,42 @@
                                         Foreground="White" Click="SubmitButton_Click"/>
                             </Grid>
 
-                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
+                            <TextBlock Grid.Row="2" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                        TextWrapping="Wrap"
                                        Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
+                            <ProgressBar Grid.Row="3" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
                                          Foreground="{StaticResource CanonnAccentBrush}"
                                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
+                            <TextBlock Grid.Row="4" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
                                        Foreground="{StaticResource CanonnAccentBrush}"
                                        Text="{Binding ResolvedSystemName, StringFormat='Rings and belts in {0}'}"
                                        Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
 
-                            <DataGrid Grid.Row="4" ItemsSource="{Binding Rings}" AutoGenerateColumns="False"
-                                      SelectedItem="{Binding SelectedRing, Mode=TwoWay}"
-                                      IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                                      Background="{StaticResource CanonnSurface2Brush}"
-                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
-                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Ring / Belt Name" Binding="{Binding RingName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Inner Radius" Binding="{Binding InnerRadiusDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Outer Radius" Binding="{Binding OuterRadiusDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Width" Binding="{Binding WidthDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Estimated Rotation" Binding="{Binding EstimatedPeriodDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Suggested Video Length" Binding="{Binding SuggestedDurationDisplay}" Width="Auto"/>
-                                    <DataGridTemplateColumn Header="Video" Width="Auto">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <StackPanel Grid.Row="5" Margin="0,4,0,0">
+                                <TextBlock Text="Body (optional - narrows the ring/belt choices)" FontWeight="SemiBold" Margin="0,0,0,4"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding BodyNames}"
+                                          SelectedItem="{Binding SelectedBodyName, Mode=TwoWay}"/>
+
+                                <TextBlock Text="Ring / Belt" FontWeight="SemiBold" Margin="0,12,0,4"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding RingChoices}" DisplayMemberPath="Display"
+                                          SelectedItem="{Binding SelectedRing, Mode=TwoWay}"/>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"
+                                           Text="{Binding SelectedRing.DetailsSummary}"
+                                           Visibility="{Binding HasSelectedRing, Converter={StaticResource BoolToVisibility}}"/>
+                            </StackPanel>
+
+                            <Button Grid.Row="6" Content="Analyze Video" Padding="24,8" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" FontSize="16"
+                                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                    IsEnabled="{Binding CanAnalyzeRing}"
+                                    Click="RingRotationAnalyzeButton_Click"/>
                         </Grid>
                     </TabItem>
 
@@ -194,17 +213,39 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <Grid Grid.Row="0">
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                        Height="160">
+                                    <Image x:Name="StationPreviewImage" Stretch="Uniform"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Top">
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"
+                                               Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <ui:AutoSuggestBox x:Name="StationSystemSearchBox" Grid.Column="0"
                                                    FontSize="16"
-                                                   PlaceholderText="Type at least 3 characters of a system name…"
+                                                   PlaceholderText="Auto-filled from the selected video, or type a system name…"
                                                    Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                    ItemsSource="{Binding Suggestions}"
                                                    DisplayMemberPath="Name"
@@ -217,44 +258,36 @@
                                         Foreground="White" Click="StationSubmitButton_Click"/>
                             </Grid>
 
-                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
+                            <TextBlock Grid.Row="2" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                        TextWrapping="Wrap"
                                        Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
+                            <ProgressBar Grid.Row="3" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
                                          Foreground="{StaticResource CanonnAccentBrush}"
                                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
+                            <TextBlock Grid.Row="4" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
                                        Foreground="{StaticResource CanonnAccentBrush}"
                                        Text="{Binding ResolvedSystemName, StringFormat='Stations, installations, and Guardian Beacons in {0}'}"
                                        Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
 
-                            <DataGrid Grid.Row="4" ItemsSource="{Binding Stations}" AutoGenerateColumns="False"
-                                      IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                                      Background="{StaticResource CanonnSurface2Brush}"
-                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
-                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Station Name" Binding="{Binding StationName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyNameDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body Radius" Binding="{Binding BodyRadiusDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body Rotational Period" Binding="{Binding BodyRotationalPeriodDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body Inclination" Binding="{Binding BodyInclinationDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Estimated Rotation (s)" Binding="{Binding EstimatedRotationDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Suggested Video Length" Binding="{Binding SuggestedDurationDisplay}" Width="Auto"/>
-                                    <DataGridTemplateColumn Header="Video" Width="Auto">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <StackPanel Grid.Row="5" Margin="0,4,0,0">
+                                <TextBlock Text="Station" FontWeight="SemiBold" Margin="0,0,0,4"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding Stations}" DisplayMemberPath="Display"
+                                          SelectedItem="{Binding SelectedStation, Mode=TwoWay}"/>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"
+                                           Text="{Binding SelectedStation.DetailsSummary}"
+                                           Visibility="{Binding HasSelectedStation, Converter={StaticResource BoolToVisibility}}"/>
+                            </StackPanel>
+
+                            <Button Grid.Row="6" Content="Analyze Video" Padding="24,8" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" FontSize="16"
+                                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                    IsEnabled="{Binding CanAnalyze}"
+                                    Click="StationAnalyzeButton_Click"/>
                         </Grid>
                     </TabItem>
 

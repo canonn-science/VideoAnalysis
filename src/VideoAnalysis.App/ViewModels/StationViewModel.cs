@@ -15,7 +15,10 @@ namespace VideoAnalysis.App.ViewModels;
 /// <see cref="SpanshClient"/> (same system search and same dump endpoint Ring Rotation already
 /// uses) - no other data source. Owns its own video-analysis/save flow rather than extending
 /// <see cref="MainViewModel"/>, mirroring how <see cref="MeasurementsViewModel"/> is already a
-/// separate view model rather than bloating the main one.</summary>
+/// separate view model rather than bloating the main one. The video comes from the shared library
+/// selection (see <see cref="VideoLibraryViewModel.EntrySelected"/>), same as Jet Cone/Slit Scan/
+/// Long Exposure, with the system/station auto-resolved from the video's tagged system where
+/// possible.</summary>
 public sealed class StationViewModel : ObservableObject, IDisposable
 {
     private readonly SpanshClient _spanshClient = new();
@@ -28,6 +31,8 @@ public sealed class StationViewModel : ObservableObject, IDisposable
     private string? _errorMessage;
     private bool _isBusy;
     private string? _resolvedSystemName;
+    private string? _videoFilePath;
+    private StationRowViewModel? _selectedStation;
 
     public StationViewModel()
     {
@@ -58,14 +63,57 @@ public sealed class StationViewModel : ObservableObject, IDisposable
         set => SetField(ref _resolvedSystemName, value);
     }
 
+    public string? VideoFilePath
+    {
+        get => _videoFilePath;
+        set
+        {
+            if (SetField(ref _videoFilePath, value))
+            {
+                OnPropertyChanged(nameof(VideoFileName));
+                OnPropertyChanged(nameof(HasVideo));
+                OnPropertyChanged(nameof(CanAnalyze));
+            }
+        }
+    }
+
+    public string? VideoFileName => VideoFilePath is null ? null : Path.GetFileName(VideoFilePath);
+
+    public bool HasVideo => VideoFilePath is not null;
+
     public ObservableCollection<SpanshSearchSystem> Suggestions { get; } = new();
 
     public ObservableCollection<StationRowViewModel> Stations { get; } = new();
 
-    public StationMeasurementsViewModel Measurements { get; }
+    public StationRowViewModel? SelectedStation
+    {
+        get => _selectedStation;
+        set
+        {
+            if (SetField(ref _selectedStation, value))
+            {
+                if (value is not null)
+                {
+                    // Picking a station resolves whatever prompted the user in the first place
+                    // (none tagged, a stale/mismatched one, ...) - don't leave that lingering.
+                    ErrorMessage = null;
+                }
 
-    /// <summary>Raised when the user clicks "Select Video…" on a station row; the view handles the file picker.</summary>
-    public event Action<StationRowViewModel>? VideoSelectionRequested;
+                OnPropertyChanged(nameof(CanAnalyze));
+                OnPropertyChanged(nameof(HasSelectedStation));
+            }
+        }
+    }
+
+    /// <summary>Whether the selected station's details summary should be shown.</summary>
+    public bool HasSelectedStation => SelectedStation is not null;
+
+    /// <summary>Analyzing requires both a video (from the library selection) and a resolved
+    /// station - the Analyze button is disabled until both are in place instead of only failing
+    /// with an error message (or falling back to a file picker) after the fact.</summary>
+    public bool CanAnalyze => HasVideo && SelectedStation is not null;
+
+    public StationMeasurementsViewModel Measurements { get; }
 
     public async Task RefreshSuggestionsAsync(string query, CancellationToken ct)
     {
@@ -95,7 +143,10 @@ public sealed class StationViewModel : ObservableObject, IDisposable
         }
     }
 
-    public async Task SubmitAsync(SpanshSearchSystem? chosenSystem)
+    /// <summary>Resolves a system and populates <see cref="Stations"/>. <paramref name="preferredStationName"/>
+    /// auto-selects the matching row (e.g. the selected library video's tagged station) once the
+    /// list is populated, if present.</summary>
+    public async Task SubmitAsync(SpanshSearchSystem? chosenSystem, string? preferredStationName = null)
     {
         if (IsBusy)
         {
@@ -104,6 +155,7 @@ public sealed class StationViewModel : ObservableObject, IDisposable
 
         ErrorMessage = null;
         Stations.Clear();
+        SelectedStation = null;
         IsBusy = true;
         try
         {
@@ -142,14 +194,31 @@ public sealed class StationViewModel : ObservableObject, IDisposable
             var stations = StationParser.ExtractStations(dump, beaconsInSystem);
 
             ResolvedSystemName = resolved.Name;
+            SystemQuery = resolved.Name;
             foreach (var station in stations)
             {
-                Stations.Add(new StationRowViewModel(station, row => VideoSelectionRequested?.Invoke(row)));
+                Stations.Add(new StationRowViewModel(station));
             }
 
             if (stations.Count == 0)
             {
                 ErrorMessage = $"\"{resolved.Name}\" has no stations, installations, or Guardian Beacons.";
+            }
+            else
+            {
+                if (preferredStationName is not null)
+                {
+                    SelectedStation = Stations.FirstOrDefault(s => s.StationName == preferredStationName);
+                }
+
+                // A measurement can't be analyzed without a selected station - prompt for one now
+                // rather than letting the user discover it's missing only after loading a video.
+                if (SelectedStation is null)
+                {
+                    ErrorMessage = preferredStationName is null
+                        ? "This video isn't tagged with a station - pick the one it shows from the grid below."
+                        : $"This video's tagged station (\"{preferredStationName}\") wasn't found in {resolved.Name} - pick the correct one from the grid below.";
+                }
             }
         }
         catch (Exception ex)

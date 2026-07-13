@@ -3,14 +3,15 @@ using VideoAnalysis.Core.Domain;
 
 namespace VideoAnalysis.App.ViewModels;
 
+/// <summary>A selectable station/installation/beacon in the resolved system - just an identity for
+/// the dropdown; the video comes from the shared library selection instead of a per-row action.</summary>
 public sealed class StationRowViewModel
 {
     public StationInfo Station { get; }
 
-    public StationRowViewModel(StationInfo station, Action<StationRowViewModel> onSelectVideo)
+    public StationRowViewModel(StationInfo station)
     {
         Station = station;
-        SelectVideoCommand = new RelayCommand(() => onSelectVideo(this));
     }
 
     public string SystemName => Station.SystemName;
@@ -23,5 +24,11 @@ public sealed class StationRowViewModel
     public string EstimatedRotationDisplay => DurationFormat.Seconds(Station.EstimatedRotationSeconds);
     public string SuggestedDurationDisplay => DurationFormat.Minutes(Station.SuggestedVideoDurationMinutes);
 
-    public RelayCommand SelectVideoCommand { get; }
+    /// <summary>The dropdown's item label.</summary>
+    public string Display => $"{StationName} ({Kind})";
+
+    /// <summary>A one-line summary of everything the removed grid columns used to show, for the
+    /// selected row only.</summary>
+    public string DetailsSummary =>
+        $"Body {BodyNameDisplay} · Body Radius {BodyRadiusDisplay} · Rotational Period {BodyRotationalPeriodDisplay} · Inclination {BodyInclinationDisplay} · Est. Rotation {EstimatedRotationDisplay} · Suggested {SuggestedDurationDisplay}";
 }

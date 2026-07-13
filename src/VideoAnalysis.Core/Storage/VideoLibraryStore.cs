@@ -69,6 +69,23 @@ public sealed class VideoLibraryStore
 
     public void UpdateThumbnail(Guid id, string thumbnailFileName) => Mutate(id, e => e.ThumbnailFileName = thumbnailFileName);
 
+    /// <summary>Tags an entry with a confirmed system/body/ring - e.g. once the user resolves them
+    /// via Ring Rotation's picker, so future selections of the same video auto-populate correctly.
+    /// Leaves station fields untouched, since that's an orthogonal dimension this doesn't know about.</summary>
+    public void UpdateSystemBodyRing(
+        Guid id, string systemName, long systemId64, double systemX, double systemY, double systemZ,
+        string bodyName, string ringName)
+        => Mutate(id, e =>
+        {
+            e.SystemName = systemName;
+            e.SystemId64 = systemId64;
+            e.SystemX = systemX;
+            e.SystemY = systemY;
+            e.SystemZ = systemZ;
+            e.BodyName = bodyName;
+            e.RingName = ringName;
+        });
+
     public void Remove(Guid id)
     {
         lock (_lock)
