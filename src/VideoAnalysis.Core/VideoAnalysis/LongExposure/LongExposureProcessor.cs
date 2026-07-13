@@ -62,8 +62,8 @@ public static class LongExposureProcessor
             var size = firstFrame.Size();
             int estimatedTotal = cap.FrameCount > 0 ? cap.FrameCount : 1;
 
-            using var maxFrame = firstFrame.Clone();
-            using var minFrame = firstFrame.Clone();
+            using var maxFrame = needMaxMin ? firstFrame.Clone() : new Mat();
+            using var minFrame = needMaxMin ? firstFrame.Clone() : new Mat();
 
             using var sumFrame = new Mat();
             if (needAverage)
