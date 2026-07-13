@@ -65,4 +65,38 @@ public class VideoFileNamerTests : IDisposable
 
         Assert.Equal(Path.Combine(_directory, "A_B_ Ring_.mp4"), suggested);
     }
+
+    [Fact]
+    public void GetNextAvailableFileName_UsesExplicitTargetDirectory_WhenProvided()
+    {
+        var subDirectory = Path.Combine(_directory, "Aurorae");
+        var videoPath = Path.Combine(_directory, "recording.mp4");
+        var suggested = VideoFileNamer.GetNextAvailableFileName(videoPath, "Aurorae Rings", subDirectory);
+
+        Assert.Equal(Path.Combine(subDirectory, "Aurorae Rings.mp4"), suggested);
+    }
+
+    [Fact]
+    public void GetNextAvailableFileName_VersionsIndependently_PerTargetDirectory()
+    {
+        var subDirectory = Path.Combine(_directory, "Aurorae");
+        Directory.CreateDirectory(subDirectory);
+        File.WriteAllText(Path.Combine(_directory, "Aurorae Rings.mp4"), "");
+
+        var videoPath = Path.Combine(_directory, "recording.mp4");
+        var suggested = VideoFileNamer.GetNextAvailableFileName(videoPath, "Aurorae Rings", subDirectory);
+
+        // The plain name is only taken in _directory, not in the (empty) subfolder - so the
+        // subfolder placement shouldn't be forced to a _v2 suffix just because a same-named file
+        // happens to exist elsewhere.
+        Assert.Equal(Path.Combine(subDirectory, "Aurorae Rings.mp4"), suggested);
+    }
+
+    [Theory]
+    [InlineData("A/B", "A_B")]
+    [InlineData("Col 285 Sector", "Col 285 Sector")]
+    public void Sanitize_ReplacesInvalidFileNameCharacters(string input, string expected)
+    {
+        Assert.Equal(expected, VideoFileNamer.Sanitize(input));
+    }
 }

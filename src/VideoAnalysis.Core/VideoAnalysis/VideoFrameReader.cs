@@ -1,11 +1,10 @@
 using OpenCvSharp;
 
-namespace VideoAnalysis.Core.VideoAnalysis.SlitScan;
+namespace VideoAnalysis.Core.VideoAnalysis;
 
-/// <summary>Grabs a single representative frame from a video, outside the full sampling/compositing
-/// pipeline - cheap enough to run once on upload so the UI can show a geometry-guide preview without
-/// re-decoding the video on every slider drag.</summary>
-public static class SlitScanPreviewFrameReader
+/// <summary>Grabs a single representative frame from a video - cheap enough to run once (on
+/// Slit Scan upload, or when caching a video library thumbnail) without a full decode pipeline.</summary>
+public static class VideoFrameReader
 {
     public static Task<byte[]?> ReadRepresentativeFrameAsync(string videoPath, CancellationToken ct = default)
     {

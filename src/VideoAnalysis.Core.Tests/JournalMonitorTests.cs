@@ -45,6 +45,135 @@ public class JournalMonitorTests : IDisposable
         Assert.Equal(expected, JournalMonitor.TryExtractSystemName(line));
     }
 
+    [Theory]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"ApproachBody\",\"Body\":\"Earth\"}", "Earth")]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"SupercruiseExit\",\"Body\":\"Sol A\"}", "Sol A")]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"Commander\",\"Name\":\"HARDCASE\"}", null)]
+    [InlineData("not json", null)]
+    [InlineData("", null)]
+    public void TryExtractBodyName_ParsesExpectedEvents(string line, string? expected)
+    {
+        Assert.Equal(expected, JournalMonitor.TryExtractBodyName(line));
+    }
+
+    [Fact]
+    public void TryExtractDockedStation_ParsesStationNameAndType()
+    {
+        var result = JournalMonitor.TryExtractDockedStation(
+            "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"Docked\",\"StationName\":\"Jameson Memorial\",\"StationType\":\"Orbis\"}");
+
+        Assert.NotNull(result);
+        Assert.Equal("Jameson Memorial", result!.Value.StationName);
+        Assert.Equal("Orbis", result.Value.StationType);
+    }
+
+    [Theory]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Sol\"}")]
+    [InlineData("not json")]
+    [InlineData("")]
+    public void TryExtractDockedStation_ReturnsNull_ForNonDockedEvents(string line)
+    {
+        Assert.Null(JournalMonitor.TryExtractDockedStation(line));
+    }
+
+    [Theory]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"Undocked\",\"StationName\":\"Jameson Memorial\"}", true)]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"Docked\",\"StationName\":\"Jameson Memorial\"}", false)]
+    [InlineData("not json", false)]
+    [InlineData("", false)]
+    public void IsUndockedEvent_ParsesExpectedEvents(string line, bool expected)
+    {
+        Assert.Equal(expected, JournalMonitor.IsUndockedEvent(line));
+    }
+
+    [Fact]
+    public void Start_PopulatesLastKnownBodyName_FromExistingJournalFile()
+    {
+        File.WriteAllText(JournalPath("Journal.2601010000.01.log"),
+            "{\"event\":\"ApproachBody\",\"Body\":\"Earth\"}\n" +
+            "{\"event\":\"SupercruiseExit\",\"Body\":\"Sol A\"}\n");
+
+        var monitor = new JournalMonitor(_directory);
+        using var signal = new ManualResetEventSlim(false);
+        monitor.BodyLocationChanged += _ => signal.Set();
+
+        try
+        {
+            monitor.Start();
+            Assert.True(signal.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal("Sol A", monitor.LastKnownBodyName);
+        }
+        finally
+        {
+            monitor.Dispose();
+        }
+    }
+
+    [Fact]
+    public void Start_PopulatesLastKnownStation_FromExistingJournalFile()
+    {
+        File.WriteAllText(JournalPath("Journal.2601010000.01.log"),
+            "{\"event\":\"Docked\",\"StationName\":\"Jameson Memorial\",\"StationType\":\"Orbis\"}\n");
+
+        var monitor = new JournalMonitor(_directory);
+        using var signal = new ManualResetEventSlim(false);
+        monitor.StationChanged += _ => signal.Set();
+
+        try
+        {
+            monitor.Start();
+            Assert.True(signal.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal("Jameson Memorial", monitor.LastKnownStationName);
+            Assert.Equal("Orbis", monitor.LastKnownStationType);
+        }
+        finally
+        {
+            monitor.Dispose();
+        }
+    }
+
+    [Fact]
+    public void UndockedEvent_ClearsLastKnownStation()
+    {
+        var path = JournalPath("Journal.2601010000.01.log");
+        File.WriteAllText(path, "{\"event\":\"Docked\",\"StationName\":\"Jameson Memorial\",\"StationType\":\"Orbis\"}\n");
+
+        var monitor = new JournalMonitor(_directory);
+        using var dockedSignal = new ManualResetEventSlim(false);
+        using var undockedSignal = new ManualResetEventSlim(false);
+        monitor.StationChanged += name =>
+        {
+            if (name == "Jameson Memorial")
+            {
+                dockedSignal.Set();
+            }
+            else if (name is null)
+            {
+                undockedSignal.Set();
+            }
+        };
+
+        try
+        {
+            monitor.Start();
+            Assert.True(dockedSignal.Wait(TimeSpan.FromSeconds(5)));
+
+            using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+            using (var writer = new StreamWriter(stream))
+            {
+                writer.Write("{\"event\":\"Undocked\",\"StationName\":\"Jameson Memorial\"}\n");
+            }
+
+            Assert.True(undockedSignal.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Null(monitor.LastKnownStationName);
+            Assert.Null(monitor.LastKnownStationType);
+        }
+        finally
+        {
+            monitor.Dispose();
+        }
+    }
+
     [Fact]
     public void Start_ReadsCommanderNameFromExistingJournalFile()
     {

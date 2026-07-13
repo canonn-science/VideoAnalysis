@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly AppSettingsStore _settingsStore = new();
     private readonly SecretStore _secretStore = new();
     private readonly JournalMonitor _journalMonitor = new();
+    private readonly VideoLibraryStore _videoLibraryStore = new();
 
     private string _systemQuery = string.Empty;
     private string? _errorMessage;
@@ -31,7 +32,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _commanderName;
     private bool _monitorJournals;
     private bool _overrideUsername;
+    private bool _organizeRenamedVideosBySystem;
+    private string? _longExposureOutputDirectory;
     private bool _hasClaudeApiKey;
+    private VideoLibraryEntryViewModel? _activeLibraryVideo;
 
     public MainViewModel()
     {
@@ -39,11 +43,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _commanderName = settings.CommanderName ?? DefaultCommanderName;
         _monitorJournals = settings.MonitorJournals;
         _overrideUsername = settings.OverrideUsername;
+        _organizeRenamedVideosBySystem = settings.OrganizeRenamedVideosBySystem;
+        _longExposureOutputDirectory = settings.LongExposureOutputDirectory;
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
         Stations = new StationViewModel();
         JetCone = new JetConeViewModel();
         LongExposure = new LongExposureViewModel();
         SlitScan = new SlitScanViewModel();
+        VideoLibrary = new VideoLibraryViewModel(_videoLibraryStore);
+        VideoLibrary.EntrySelected += OnLibraryEntrySelected;
         _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
         _journalMonitor.CommanderNameChanged += OnJournalCommanderNameChanged;
         if (_monitorJournals)
@@ -108,6 +116,35 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>When enabled, a rename accepted from the "Add to Video Library" dialog moves the
+    /// file into a subfolder named after its system, instead of leaving it alongside the original.</summary>
+    public bool OrganizeRenamedVideosBySystem
+    {
+        get => _organizeRenamedVideosBySystem;
+        set
+        {
+            if (SetField(ref _organizeRenamedVideosBySystem, value))
+            {
+                PersistSettings();
+            }
+        }
+    }
+
+    /// <summary>Null means "use the default Pictures\RotationAnalysisLab\LongExposure folder" -
+    /// updated whenever a Long Exposure save goes somewhere other than the currently suggested
+    /// folder, so later saves default there instead of reverting back to the original default.</summary>
+    public string? LongExposureOutputDirectory
+    {
+        get => _longExposureOutputDirectory;
+        set
+        {
+            if (SetField(ref _longExposureOutputDirectory, value))
+            {
+                PersistSettings();
+            }
+        }
+    }
+
     private void PersistSettings()
     {
         _settingsStore.Save(new AppSettings
@@ -115,9 +152,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             CommanderName = _commanderName,
             MonitorJournals = _monitorJournals,
             OverrideUsername = _overrideUsername,
+            OrganizeRenamedVideosBySystem = _organizeRenamedVideosBySystem,
+            LongExposureOutputDirectory = _longExposureOutputDirectory,
         });
     }
 
+    private void OnJournalCommanderNameChanged(string name)
+    {
         void Apply()
         {
             if (!OverrideUsername)
@@ -135,6 +176,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             dispatcher.BeginInvoke((Action)Apply);
         }
+    }
 
     public string? ErrorMessage
     {
@@ -158,6 +200,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<RingRowViewModel> Rings { get; } = new();
 
+    public ObservableCollection<string> BodyNames { get; } = new();
+
+    /// <summary>The ring/belt dropdown's actual choices - all of <see cref="Rings"/>, or just
+    /// those belonging to <see cref="SelectedBodyName"/> once one is picked.</summary>
+    public ObservableCollection<RingRowViewModel> RingChoices { get; } = new();
+
     public MeasurementsViewModel Measurements { get; }
 
     public StationViewModel Stations { get; }
@@ -167,6 +215,140 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public LongExposureViewModel LongExposure { get; }
 
     public SlitScanViewModel SlitScan { get; }
+
+    public VideoLibraryViewModel VideoLibrary { get; }
+
+    /// <summary>The library video currently active for analysis, or null if none is selected /
+    /// its file has gone missing since selection. Ring Rotation's Analyze button uses this
+    /// directly, gated by <see cref="CanAnalyzeRing"/> until it (and a ring) are both set.</summary>
+    public VideoLibraryEntryViewModel? ActiveLibraryVideo
+    {
+        get => _activeLibraryVideo;
+        private set
+        {
+            if (SetField(ref _activeLibraryVideo, value))
+            {
+                OnPropertyChanged(nameof(CanAnalyzeRing));
+            }
+        }
+    }
+
+    /// <summary>Exposed so the upload metadata modal can read current journal-derived values
+    /// (system/body/station) to pre-fill from, without routing every value through this view model.</summary>
+    public JournalMonitor JournalMonitor => _journalMonitor;
+
+    /// <summary>Exposed so the upload metadata modal can reuse the same Spansh client rather than
+    /// opening a second one.</summary>
+    public SpanshClient SpanshClient => _spanshClient;
+
+    private RingRowViewModel? _selectedRing;
+    private string? _selectedBodyName;
+
+    /// <summary>Bound to the Body dropdown - holds <see cref="RingRowViewModel.BodyDisplay"/>
+    /// (name + subtype, e.g. "Eorl Scrua AA-A h670 2 (Neutron Star)"), not the bare name, so
+    /// bodies sharing a name but not a type stay distinguishable. Narrows <see cref="RingChoices"/>
+    /// to that body's own rings/belts - the user picks a specific ring from there, or
+    /// <see cref="SelectedRing"/> fixes this back to match if they pick a ring directly instead.</summary>
+    public string? SelectedBodyName
+    {
+        get => _selectedBodyName;
+        set
+        {
+            if (_selectedBodyName == value)
+            {
+                return;
+            }
+
+            _selectedBodyName = value;
+            OnPropertyChanged();
+
+            // Clear the ring selection *before* rebuilding the filtered list below if it no
+            // longer belongs to the newly chosen body - so there's never a moment where the
+            // bound ComboBox's SelectedItem points at a ring that isn't (yet) in RingChoices.
+            if (SelectedRing is not null && SelectedRing.BodyDisplay != value)
+            {
+                SelectedRing = null;
+            }
+
+            RingChoices.Clear();
+            foreach (var ring in Rings.Where(r => value is null || r.BodyDisplay == value))
+            {
+                RingChoices.Add(ring);
+            }
+        }
+    }
+
+    /// <summary>Bound to the Ring / Belt dropdown's selection. Auto-set after a library video with
+    /// a known <c>RingName</c> resolves its system, so the matching option is picked instead of
+    /// requiring the user to find it themselves.</summary>
+    public RingRowViewModel? SelectedRing
+    {
+        get => _selectedRing;
+        set
+        {
+            if (SetField(ref _selectedRing, value))
+            {
+                if (value is not null)
+                {
+                    // Picking a ring resolves whatever prompted the user in the first place (no
+                    // ring tagged, a stale/mismatched one, ...) - don't leave that message lingering.
+                    ErrorMessage = null;
+
+                    // Selecting a ring fixes the body choice to match it - set the field/notify
+                    // directly rather than going through the SelectedBodyName setter, since that
+                    // would rebuild (Clear + re-Add) RingChoices and risk momentarily dropping
+                    // the very selection just made.
+                    if (_selectedBodyName != value.BodyDisplay)
+                    {
+                        _selectedBodyName = value.BodyDisplay;
+                        OnPropertyChanged(nameof(SelectedBodyName));
+                    }
+                }
+
+                OnPropertyChanged(nameof(CanAnalyzeRing));
+                OnPropertyChanged(nameof(HasSelectedRing));
+            }
+        }
+    }
+
+    /// <summary>Whether the selected ring's details summary should be shown.</summary>
+    public bool HasSelectedRing => SelectedRing is not null;
+
+    /// <summary>Analyzing requires both a non-missing library video and a resolved ring - the
+    /// Analyze button is disabled until both are in place instead of only failing with an error
+    /// message (or falling back to a file picker) after the fact.</summary>
+    public bool CanAnalyzeRing => ActiveLibraryVideo is { IsFileMissing: false } && SelectedRing is not null;
+
+    private void OnLibraryEntrySelected(VideoLibraryEntryViewModel entry)
+    {
+        ActiveLibraryVideo = entry;
+        if (entry.Entry.SystemId64 is long id64)
+        {
+            var syntheticSystem = new SpanshSearchSystem
+            {
+                Id64 = id64,
+                Name = entry.Entry.SystemName ?? string.Empty,
+                X = entry.Entry.SystemX ?? 0,
+                Y = entry.Entry.SystemY ?? 0,
+                Z = entry.Entry.SystemZ ?? 0,
+            };
+            SystemQuery = syntheticSystem.Name;
+            _ = SubmitAsync(syntheticSystem);
+        }
+else
+{
+    // Clear any previously resolved system/ring state so Analyze stays gated off until the user
+    // resolves the system for this new, untagged video.
+    SelectedRing = null;
+    SelectedBodyName = null;
+    Rings.Clear();
+    BodyNames.Clear();
+    RingChoices.Clear();
+    ResolvedSystemName = null;
+
+    ErrorMessage = "This video isn't tagged with a system - search for one above, then pick its ring below.";
+}
+    }
 
     public bool HasClaudeApiKey
     {
@@ -185,9 +367,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _secretStore.DeleteClaudeApiKey();
         HasClaudeApiKey = false;
     }
-
-    /// <summary>Raised when the user clicks "Select Video…" on a ring row; the view handles the file picker.</summary>
-    public event Action<RingRowViewModel>? VideoSelectionRequested;
 
     public async Task RefreshSuggestionsAsync(string query, CancellationToken ct)
     {
@@ -229,6 +408,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         ErrorMessage = null;
         Rings.Clear();
+        BodyNames.Clear();
+        RingChoices.Clear();
+        SelectedRing = null;
+        if (_selectedBodyName is not null)
+        {
+            _selectedBodyName = null;
+            OnPropertyChanged(nameof(SelectedBodyName));
+        }
         IsBusy = true;
         try
         {
@@ -262,12 +449,42 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             ResolvedSystemName = resolved.Name;
             foreach (var ring in rings)
             {
-                Rings.Add(new RingRowViewModel(ring, row => VideoSelectionRequested?.Invoke(row)));
+                var row = new RingRowViewModel(ring);
+                Rings.Add(row);
+                RingChoices.Add(row);
+                if (!BodyNames.Contains(row.BodyDisplay))
+                {
+                    BodyNames.Add(row.BodyDisplay);
+                }
             }
 
             if (rings.Count == 0)
             {
                 ErrorMessage = $"\"{resolved.Name}\" has no rings or belts.";
+            }
+            else
+            {
+                var wantedRingName = ActiveLibraryVideo?.Entry.RingName;
+                var wantedBodyName = ActiveLibraryVideo?.Entry.BodyName;
+                if (wantedRingName is not null)
+                {
+                    SelectedRing = Rings.FirstOrDefault(r => r.Ring.RingName == wantedRingName);
+                }
+                else if (wantedBodyName is not null && Rings.FirstOrDefault(r => r.BodyName == wantedBodyName) is { } wantedBodyRow)
+                {
+                    // No specific ring tagged, but the body is known - narrow the choices down to
+                    // it and let the user pick the exact ring themselves.
+                    SelectedBodyName = wantedBodyRow.BodyDisplay;
+                }
+
+                // A measurement can't be analyzed without a selected ring - prompt for one now
+                // rather than letting the user discover it's missing only after loading a video.
+                if (SelectedRing is null)
+                {
+                    ErrorMessage = wantedRingName is null
+                        ? "This video isn't tagged with a ring - pick the one it shows from the dropdown below."
+                        : $"This video's tagged ring (\"{wantedRingName}\") wasn't found in {resolved.Name} - pick the correct one from the dropdown below.";
+                }
             }
         }
         catch (Exception ex)
@@ -383,6 +600,5 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _journalMonitor.Dispose();
         Stations.Dispose();
         JetCone.Dispose();
-        LongExposure.Dispose();
     }
 }

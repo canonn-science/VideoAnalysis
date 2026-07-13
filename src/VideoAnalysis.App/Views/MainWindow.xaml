@@ -43,7 +43,18 @@
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="1" Margin="12">
+        <Grid Grid.Row="1" Margin="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20*" MinWidth="300"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="80*"/>
+            </Grid.ColumnDefinitions>
+
+            <views:VideoLibraryPanel Grid.Column="0" DataContext="{Binding VideoLibrary}"/>
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                          Background="{StaticResource CanonnBorderBrush}"/>
+
+        <TabControl Grid.Column="2">
             <TabItem Header="Ring Rotation">
                 <TabControl Margin="0,8,0,0">
                     <TabItem Header="System">
@@ -53,18 +64,40 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                        Height="160">
+                                    <Image x:Name="RingRotationPreviewImage" Stretch="Uniform"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Top">
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"
+                                               Text="{Binding ActiveLibraryVideo.FileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
+                                </StackPanel>
+                            </Grid>
+
                             <!-- Search row -->
-                            <Grid Grid.Row="0">
+                            <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <ui:AutoSuggestBox x:Name="SystemSearchBox" Grid.Column="0"
                                                    FontSize="16"
-                                                   PlaceholderText="Type at least 3 characters of a system name…"
+                                                   PlaceholderText="Auto-filled from the selected video, or type a system name…"
                                                    Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                    ItemsSource="{Binding Suggestions}"
                                                    DisplayMemberPath="Name"
@@ -77,44 +110,42 @@
                                         Foreground="White" Click="SubmitButton_Click"/>
                             </Grid>
 
-                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
+                            <TextBlock Grid.Row="2" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                        TextWrapping="Wrap"
                                        Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
+                            <ProgressBar Grid.Row="3" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
                                          Foreground="{StaticResource CanonnAccentBrush}"
                                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
+                            <TextBlock Grid.Row="4" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
                                        Foreground="{StaticResource CanonnAccentBrush}"
                                        Text="{Binding ResolvedSystemName, StringFormat='Rings and belts in {0}'}"
                                        Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
 
-                            <DataGrid Grid.Row="4" ItemsSource="{Binding Rings}" AutoGenerateColumns="False"
-                                      IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                                      Background="{StaticResource CanonnSurface2Brush}"
-                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
-                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Ring / Belt Name" Binding="{Binding RingName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Inner Radius" Binding="{Binding InnerRadiusDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Outer Radius" Binding="{Binding OuterRadiusDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Width" Binding="{Binding WidthDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Estimated Rotation" Binding="{Binding EstimatedPeriodDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Suggested Video Length" Binding="{Binding SuggestedDurationDisplay}" Width="Auto"/>
-                                    <DataGridTemplateColumn Header="Video" Width="Auto">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <StackPanel Grid.Row="5" Margin="0,4,0,0">
+                                <TextBlock Text="Body (optional - narrows the ring/belt choices)" FontWeight="SemiBold" Margin="0,0,0,4"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding BodyNames}"
+                                          SelectedItem="{Binding SelectedBodyName, Mode=TwoWay}"/>
+
+                                <TextBlock Text="Ring / Belt" FontWeight="SemiBold" Margin="0,12,0,4"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding RingChoices}" DisplayMemberPath="Display"
+                                          SelectedItem="{Binding SelectedRing, Mode=TwoWay}"/>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"
+                                           Text="{Binding SelectedRing.DetailsSummary}"
+                                           Visibility="{Binding HasSelectedRing, Converter={StaticResource BoolToVisibility}}"/>
+                            </StackPanel>
+
+                            <Button Grid.Row="6" Content="Analyze Video" Padding="24,8" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" FontSize="16"
+                                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                    IsEnabled="{Binding CanAnalyzeRing}"
+                                    Click="RingRotationAnalyzeButton_Click"/>
                         </Grid>
                     </TabItem>
 
@@ -182,17 +213,39 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <Grid Grid.Row="0">
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                        Height="160">
+                                    <Image x:Name="StationPreviewImage" Stretch="Uniform"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Top">
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"
+                                               Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <ui:AutoSuggestBox x:Name="StationSystemSearchBox" Grid.Column="0"
                                                    FontSize="16"
-                                                   PlaceholderText="Type at least 3 characters of a system name…"
+                                                   PlaceholderText="Auto-filled from the selected video, or type a system name…"
                                                    Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                    ItemsSource="{Binding Suggestions}"
                                                    DisplayMemberPath="Name"
@@ -205,44 +258,36 @@
                                         Foreground="White" Click="StationSubmitButton_Click"/>
                             </Grid>
 
-                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
+                            <TextBlock Grid.Row="2" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                        TextWrapping="Wrap"
                                        Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
+                            <ProgressBar Grid.Row="3" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
                                          Foreground="{StaticResource CanonnAccentBrush}"
                                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
+                            <TextBlock Grid.Row="4" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
                                        Foreground="{StaticResource CanonnAccentBrush}"
                                        Text="{Binding ResolvedSystemName, StringFormat='Stations, installations, and Guardian Beacons in {0}'}"
                                        Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
 
-                            <DataGrid Grid.Row="4" ItemsSource="{Binding Stations}" AutoGenerateColumns="False"
-                                      IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                                      Background="{StaticResource CanonnSurface2Brush}"
-                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
-                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Station Name" Binding="{Binding StationName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyNameDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body Radius" Binding="{Binding BodyRadiusDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body Rotational Period" Binding="{Binding BodyRotationalPeriodDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body Inclination" Binding="{Binding BodyInclinationDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Estimated Rotation (s)" Binding="{Binding EstimatedRotationDisplay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Suggested Video Length" Binding="{Binding SuggestedDurationDisplay}" Width="Auto"/>
-                                    <DataGridTemplateColumn Header="Video" Width="Auto">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <StackPanel Grid.Row="5" Margin="0,4,0,0">
+                                <TextBlock Text="Station" FontWeight="SemiBold" Margin="0,0,0,4"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                          ItemsSource="{Binding Stations}" DisplayMemberPath="Display"
+                                          SelectedItem="{Binding SelectedStation, Mode=TwoWay}"/>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"
+                                           Text="{Binding SelectedStation.DetailsSummary}"
+                                           Visibility="{Binding HasSelectedStation, Converter={StaticResource BoolToVisibility}}"/>
+                            </StackPanel>
+
+                            <Button Grid.Row="6" Content="Analyze Video" Padding="24,8" Margin="0,12,0,0"
+                                    HorizontalAlignment="Left" FontSize="16"
+                                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                    IsEnabled="{Binding CanAnalyze}"
+                                    Click="StationAnalyzeButton_Click"/>
                         </Grid>
                     </TabItem>
 
@@ -283,70 +328,141 @@
 
             <TabItem Header="Jet Cone Length" DataContext="{Binding JetCone}">
                 <TabControl Margin="0,8,0,0">
-                    <TabItem Header="System">
-                        <Grid Margin="12">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
+                    <TabItem Header="Measure">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <Grid Margin="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ui:AutoSuggestBox x:Name="JetConeSystemSearchBox" Grid.Column="0"
-                                                   FontSize="16"
-                                                   PlaceholderText="Type at least 3 characters of a system name…"
-                                                   Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                   ItemsSource="{Binding Suggestions}"
-                                                   DisplayMemberPath="Name"
-                                                   TextMemberPath="Name"
-                                                   TextChanged="JetConeSystemSearchBox_TextChanged"
-                                                   QuerySubmitted="JetConeSystemSearchBox_QuerySubmitted"
-                                                   SuggestionChosen="JetConeSystemSearchBox_SuggestionChosen"/>
-                                <Button Grid.Column="1" Content="Submit" Margin="8,0,0,0" Padding="16,8"
-                                        FontSize="16" Background="{StaticResource CanonnAccentBrush}"
-                                        Foreground="White" Click="JetConeSubmitButton_Click"/>
+                                <Border Grid.Row="0" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                        BorderThickness="1" Padding="14">
+                                    <StackPanel>
+                                        <TextBlock Text="How to film it" FontWeight="SemiBold" FontSize="14"
+                                                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,8"/>
+                                        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}" LineHeight="20"
+                                                   Text="Fly out away from the neutron star parallel to the jets. Turn around and fly directly towards the jet, adjusting your approach to ensure that the end of a jet cone is the only part visible. Fly as direct as you can to the cone, keeping the speed low enough that you can see the distance counter change 1 hundredth of a light second at a time. Keep speed constant. Stop recording when the Frameshift Turbulence begins."/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid Grid.Row="1" Margin="0,16,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                            Height="220">
+                                        <Image x:Name="JetConePreviewImage" Stretch="Uniform"/>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Top">
+                                        <TextBlock FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource CanonnTextBrightBrush}"
+                                                   Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Grid.Row="2" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,12,0,0"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
+
+                                <StackPanel Grid.Row="3" Margin="0,16,0,0">
+                                    <TextBlock Text="Target" FontWeight="SemiBold" Margin="0,0,0,4"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ui:AutoSuggestBox x:Name="JetConeSystemSearchBox" Grid.Column="0"
+                                                           PlaceholderText="Auto-filled from the selected video, or type a system name…"
+                                                           Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                           ItemsSource="{Binding Suggestions}"
+                                                           DisplayMemberPath="Name"
+                                                           TextMemberPath="Name"
+                                                           TextChanged="JetConeSystemSearchBox_TextChanged"
+                                                           QuerySubmitted="JetConeSystemSearchBox_QuerySubmitted"
+                                                           SuggestionChosen="JetConeSystemSearchBox_SuggestionChosen"/>
+                                        <Button Grid.Column="1" Content="Look Up" Margin="8,0,0,0" Padding="12,6"
+                                                Click="JetConeSubmitButton_Click"/>
+                                    </Grid>
+
+                                    <ProgressBar IsIndeterminate="True" Height="4" Margin="0,8,0,0"
+                                                 Foreground="{StaticResource CanonnAccentBrush}"
+                                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+
+                                    <TextBlock Margin="0,8,0,4" FontSize="12" Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="{Binding ResolvedSystemName, StringFormat='Neutron stars and white dwarfs in {0}:'}"
+                                               Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
+                                    <ComboBox MaxWidth="420" HorizontalAlignment="Left"
+                                              ItemsSource="{Binding Targets}" DisplayMemberPath="Display"
+                                              SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"/>
+                                </StackPanel>
+
+                                <Button Grid.Row="4" Content="Analyze Video" Padding="24,8" Margin="0,16,0,0"
+                                        HorizontalAlignment="Left" FontSize="16"
+                                        Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                        IsEnabled="{Binding CanAnalyze}"
+                                        Click="JetConeAnalyzeButton_Click"/>
+
+                                <Grid Grid.Row="5" Margin="0,20,0,0" Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Text="Confirm the distance reading" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource CanonnAccentBrush}"/>
+                                    <TextBlock Grid.Row="1" Margin="0,4,0,0" TextWrapping="Wrap" FontSize="13"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Frame captured at the moment the FSD warning overlay appeared. Check the value against the reticle readout below and correct it if needed."/>
+
+                                    <Border Grid.Row="2" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                            Margin="0,12,0,0" Padding="4" HorizontalAlignment="Left">
+                                        <Image x:Name="JetConeReticleImage" Stretch="Uniform" MaxHeight="360" MaxWidth="640"/>
+                                    </Border>
+
+                                    <Border Grid.Row="3" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                            Margin="0,8,0,0" Padding="4" HorizontalAlignment="Left">
+                                        <Image x:Name="JetConeBottomLeftImage" Stretch="Uniform" MaxHeight="140" MaxWidth="640"/>
+                                    </Border>
+
+                                    <Grid Grid.Row="4" Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="Distance (Ls):" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,10,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBox x:Name="JetConeDistanceTextBox" Width="140" HorizontalAlignment="Left" FontSize="16"/>
+                                            <TextBlock FontSize="11" Margin="0,4,0,0"
+                                                       Foreground="{StaticResource CanonnTextMutedBrush}"
+                                                       Text="{Binding DistanceSourceLabel}"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Content="Discard" Padding="16,8" Margin="0,0,8,0"
+                                                Click="JetConeDiscardReviewButton_Click"/>
+                                        <Button Grid.Column="3" Content="Save Measurement" Padding="24,8"
+                                                Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                                Click="JetConeSaveMeasurementButton_Click"/>
+                                    </Grid>
+                                </Grid>
                             </Grid>
-
-                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
-                                       TextWrapping="Wrap"
-                                       Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
-
-                            <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
-                                         Foreground="{StaticResource CanonnAccentBrush}"
-                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
-                                       Foreground="{StaticResource CanonnAccentBrush}"
-                                       Text="{Binding ResolvedSystemName, StringFormat='Neutron stars and white dwarfs in {0}'}"
-                                       Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
-
-                            <DataGrid Grid.Row="4" ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
-                                      IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                                      SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                                      Background="{StaticResource CanonnSurface2Brush}"
-                                      RowBackground="{StaticResource CanonnSurfaceBrush}"
-                                      AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                                      BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Type" Binding="{Binding BodyType}" Width="Auto"/>
-                                    <DataGridTemplateColumn Header="Video" Width="Auto">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
+                        </ScrollViewer>
                     </TabItem>
 
                     <TabItem Header="Measurement History" DataContext="{Binding Measurements}">
@@ -387,63 +503,127 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <ui:AutoSuggestBox x:Name="LongExposureSystemSearchBox" Grid.Column="0"
-                                           FontSize="16"
-                                           PlaceholderText="Type at least 3 characters of a system name…"
-                                           Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                           ItemsSource="{Binding Suggestions}"
-                                           DisplayMemberPath="Name"
-                                           TextMemberPath="Name"
-                                           TextChanged="LongExposureSystemSearchBox_TextChanged"
-                                           QuerySubmitted="LongExposureSystemSearchBox_QuerySubmitted"
-                                           SuggestionChosen="LongExposureSystemSearchBox_SuggestionChosen"/>
-                        <Button Grid.Column="1" Content="Submit" Margin="8,0,0,0" Padding="16,8"
-                                FontSize="16" Background="{StaticResource CanonnAccentBrush}"
-                                Foreground="White" Click="LongExposureSubmitButton_Click"/>
-                    </Grid>
+                    <TextBlock Grid.Row="0" FontSize="14" Foreground="{StaticResource CanonnTextBrightBrush}"
+                               Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
 
                     <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                TextWrapping="Wrap"
                                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                    <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
-                                 Foreground="{StaticResource CanonnAccentBrush}"
-                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+                    <Border Grid.Row="2" Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                            BorderThickness="1" Padding="14" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold" FontSize="14"
+                                       Foreground="{StaticResource CanonnTextBrightBrush}" Margin="0,0,0,4"
+                                       Text="Modes to generate"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10"
+                                       Foreground="{StaticResource CanonnTextMutedBrush}"
+                                       Text="Uncheck any you don't need - skipped modes aren't computed at all, so fewer checked modes means faster generation."/>
 
-                    <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
-                               Foreground="{StaticResource CanonnAccentBrush}"
-                               Text="{Binding ResolvedSystemName, StringFormat='Bodies and stations in {0}'}"
-                               Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeAverage, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Average"/><Run Text=" - smooths out anything that moves, leaving only static objects sharp: the classic long-exposure look."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMaximum, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Maximum"/><Run Text=" - keeps the brightest value seen at each pixel across the whole clip: good for star trails and bright motion streaks."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMinimum, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Minimum"/><Run Text=" - keeps the darkest value seen at each pixel: highlights whatever consistently stayed dark, e.g. a transiting body."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMaxMinusMin, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Max Minus Min"/><Run Text=" - the difference between brightest and darkest at each pixel: isolates whatever changed from what stayed static."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMotionVariance, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Variance"/><Run Text=" - a heatmap of how much each pixel fluctuated over time: moving regions light up, static background goes black."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding IncludeMotionBlur, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Blur"/><Run Text=" - a fading trail effect where recent motion dominates but older bright spots fade out, rather than persisting forever like Maximum's trails."/>
+                                </TextBlock>
+                            </CheckBox>
+                        </StackPanel>
+                    </Border>
 
-                    <DataGrid Grid.Row="4" ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
-                              IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                              SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                              Background="{StaticResource CanonnSurface2Brush}"
-                              RowBackground="{StaticResource CanonnSurfaceBrush}"
-                              AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                              BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
-                            <DataGridTextColumn Header="Object" Binding="{Binding ObjectName}" Width="Auto"/>
-                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="Auto"/>
-                            <DataGridTextColumn Header="Type" Binding="{Binding ObjectType}" Width="Auto"/>
-                            <DataGridTemplateColumn Header="Video" Width="Auto">
-                                <DataGridTemplateColumn.CellTemplate>
+                    <StackPanel Grid.Row="3" Margin="0,16,0,0" MaxWidth="420" HorizontalAlignment="Left"
+                                IsEnabled="{Binding IncludeMotionBlur}">
+                        <TextBlock Foreground="{StaticResource CanonnTextBrightBrush}" FontWeight="SemiBold">
+                            <Run Text="Motion Blur trail length:"/> <Run x:Name="MotionBlurAlphaValueText" Text="0.15"/>
+                        </TextBlock>
+                        <Slider x:Name="MotionBlurAlphaSlider" Minimum="0.02" Maximum="0.6" Value="0.15"
+                                SmallChange="0.01" LargeChange="0.05"
+                                ValueChanged="MotionBlurAlphaSlider_ValueChanged" Margin="0,4,0,0"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource CanonnTextMutedBrush}" Margin="0,4,0,0"
+                                   Text="Lower = longer, fainter trails. Higher = shorter, sharper trails. Only affects the Motion Blur variant."/>
+                    </StackPanel>
+
+                    <Button Grid.Row="4" Content="Generate Long Exposure" Padding="24,8" Margin="0,16,0,0"
+                            HorizontalAlignment="Left" FontSize="16"
+                            Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                            Click="LongExposureGenerateButton_Click"/>
+
+                    <Grid Grid.Row="5" Margin="0,16,0,0" Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Select a variation to preview, then save it or save all of them." FontSize="14"
+                                   FontWeight="SemiBold" Foreground="{StaticResource CanonnAccentBrush}" Margin="0,0,0,12"/>
+
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
+                                <Image x:Name="LongExposurePreviewImage" Stretch="Uniform"/>
+                            </Border>
+
+                            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                                          Background="{StaticResource CanonnBorderBrush}"/>
+
+                            <ListBox x:Name="LongExposureVariantList" Grid.Column="2" SelectionMode="Single"
+                                     Background="Transparent" BorderThickness="0" Margin="8,0,0,0"
+                                     SelectionChanged="LongExposureVariantList_SelectionChanged">
+                                <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
+                                        <Border Background="Black" BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                                Margin="0,0,0,8" Padding="4">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform" Width="90" Height="60"/>
+                                                <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                                           Foreground="{StaticResource CanonnTextBrightBrush}" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Border>
                                     </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button x:Name="LongExposureSaveSelectedButton" Content="Save Selected…" Padding="16,8" Margin="0,0,8,0"
+                                    Click="LongExposureSaveSelectedButton_Click"/>
+                            <Button Content="Save All…" Padding="16,8"
+                                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                    Click="LongExposureSaveAllButton_Click"/>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </TabItem>
 
@@ -456,18 +636,9 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="Upload Video…" Padding="16,8"
-                                FontSize="16" Background="{StaticResource CanonnAccentBrush}"
-                                Foreground="White" Click="SlitScanUploadButton_Click"/>
-                        <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="14"
-                                   Foreground="{StaticResource CanonnTextBrightBrush}"
-                                   Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='No video selected yet.'}"/>
-                    </Grid>
+                    <TextBlock Grid.Row="0" VerticalAlignment="Center" FontSize="14"
+                               Foreground="{StaticResource CanonnTextBrightBrush}"
+                               Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
 
                     <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                TextWrapping="Wrap"
@@ -544,6 +715,20 @@
                         <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
                                 BorderThickness="1" Padding="14" Margin="0,16,0,0">
                             <StackPanel>
+                                <TextBlock Text="Video Library" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+
+                                <CheckBox Content="Organize renamed videos into a folder named after the system" Margin="0,12,0,0"
+                                          IsChecked="{Binding OrganizeRenamedVideosBySystem, Mode=TwoWay}"/>
+                                <TextBlock Margin="24,4,0,0" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"
+                                           Text="When accepting a suggested rename from the &quot;Add to Video Library&quot; dialog, moves the file into a same-folder subdirectory named after its system instead of leaving it alongside the original."/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                            <StackPanel>
                                 <TextBlock Text="Claude" FontWeight="SemiBold" FontSize="14"
                                            Foreground="{StaticResource CanonnTextBrightBrush}"/>
                                 <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12"
@@ -599,5 +784,6 @@
                 </Grid>
             </TabItem>
         </TabControl>
+        </Grid>
     </Grid>
 </Window>

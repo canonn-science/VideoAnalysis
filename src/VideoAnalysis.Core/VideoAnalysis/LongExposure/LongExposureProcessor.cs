@@ -15,14 +15,35 @@ namespace VideoAnalysis.Core.VideoAnalysis.LongExposure;
 /// </summary>
 public static class LongExposureProcessor
 {
-    /// <summary>Blend weight for each new frame in the motion-blur exponential moving average.
-    /// Lower = longer, fainter trails; higher = shorter, sharper ones. Chosen empirically as a
-    /// reasonable middle ground for typical Elite Dangerous flight/orbit footage.</summary>
-    private const double MotionBlurAlpha = 0.15;
+    /// <summary>Default blend weight for each new frame in the motion-blur exponential moving
+    /// average - lower = longer, fainter trails; higher = shorter, sharper ones. Chosen empirically
+    /// as a reasonable middle ground for typical Elite Dangerous flight/orbit footage.</summary>
+    public const double DefaultMotionBlurAlpha = 0.15;
 
+    /// <summary><paramref name="motionBlurAlpha"/> is clamped to (0, 1] - 0 would never let a new
+    /// frame contribute anything, freezing the accumulator at the first frame forever.
+    /// <paramref name="selectedVariants"/> skips both the per-frame accumulation and the final
+    /// compositing work for anything not selected, rather than just discarding it afterward - so
+    /// deselecting variants you don't need actually speeds up generation.</summary>
     public static Task<LongExposureResult> GenerateAsync(
-        string videoPath, IProgress<VideoAnalysisProgress>? progress = null, CancellationToken ct = default)
+        string videoPath, double motionBlurAlpha = DefaultMotionBlurAlpha,
+        LongExposureVariants selectedVariants = LongExposureVariants.All,
+        IProgress<VideoAnalysisProgress>? progress = null, CancellationToken ct = default)
     {
+        if (selectedVariants == LongExposureVariants.None)
+        {
+            throw new ArgumentException("At least one variant must be selected.", nameof(selectedVariants));
+        }
+
+        var alpha = Math.Clamp(motionBlurAlpha, 0.01, 1.0);
+
+        // Max Minus Min can't exist without both accumulators, so any one of the three selects all.
+        const LongExposureVariants maxMinGroup = LongExposureVariants.Maximum | LongExposureVariants.Minimum | LongExposureVariants.MaxMinusMin;
+        var needMaxMin = (selectedVariants & maxMinGroup) != LongExposureVariants.None;
+        var needAverage = (selectedVariants & LongExposureVariants.Average) != LongExposureVariants.None;
+        var needMotionBlur = (selectedVariants & LongExposureVariants.MotionBlur) != LongExposureVariants.None;
+        var needMotionVariance = (selectedVariants & LongExposureVariants.MotionVariance) != LongExposureVariants.None;
+
         return Task.Run(() =>
         {
             progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.Opening, 0, "Opening video…"));
@@ -41,20 +62,29 @@ public static class LongExposureProcessor
             var size = firstFrame.Size();
             int estimatedTotal = cap.FrameCount > 0 ? cap.FrameCount : 1;
 
-            using var maxFrame = firstFrame.Clone();
-            using var minFrame = firstFrame.Clone();
+            using var maxFrame = needMaxMin ? firstFrame.Clone() : new Mat();
+            using var minFrame = needMaxMin ? firstFrame.Clone() : new Mat();
 
             using var sumFrame = new Mat();
-            firstFrame.ConvertTo(sumFrame, MatType.CV_64FC3);
+            if (needAverage)
+            {
+                firstFrame.ConvertTo(sumFrame, MatType.CV_64FC3);
+            }
 
             using var blurAccumulator = new Mat();
-            firstFrame.ConvertTo(blurAccumulator, MatType.CV_64FC3);
+            if (needMotionBlur)
+            {
+                firstFrame.ConvertTo(blurAccumulator, MatType.CV_64FC3);
+            }
 
             using var prevGray = new Mat();
-            Cv2.CvtColor(firstFrame, prevGray, ColorConversionCodes.BGR2GRAY);
+            if (needMotionVariance)
+            {
+                Cv2.CvtColor(firstFrame, prevGray, ColorConversionCodes.BGR2GRAY);
+            }
 
-            using var motionSum = Mat.Zeros(size, MatType.CV_64FC1).ToMat();
-            using var motionSqSum = Mat.Zeros(size, MatType.CV_64FC1).ToMat();
+using var motionSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
+using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
 
             int count = 1;
             using var frame = new Mat();
@@ -66,21 +96,32 @@ public static class LongExposureProcessor
                     break;
                 }
 
-                Cv2.Max(maxFrame, frame, maxFrame);
-                Cv2.Min(minFrame, frame, minFrame);
-
-                using (var frameDouble = new Mat())
+                if (needMaxMin)
                 {
-                    frame.ConvertTo(frameDouble, MatType.CV_64FC3);
-                    Cv2.Add(sumFrame, frameDouble, sumFrame);
-                    Cv2.AddWeighted(frameDouble, MotionBlurAlpha, blurAccumulator, 1.0 - MotionBlurAlpha, 0, blurAccumulator);
+                    Cv2.Max(maxFrame, frame, maxFrame);
+                    Cv2.Min(minFrame, frame, minFrame);
                 }
 
-                using (var gray = new Mat())
-                using (var diff = new Mat())
-                using (var diffDouble = new Mat())
-                using (var diffSquared = new Mat())
+                if (needAverage || needMotionBlur)
                 {
+                    using var frameDouble = new Mat();
+                    frame.ConvertTo(frameDouble, MatType.CV_64FC3);
+                    if (needAverage)
+                    {
+                        Cv2.Add(sumFrame, frameDouble, sumFrame);
+                    }
+                    if (needMotionBlur)
+                    {
+                        Cv2.AddWeighted(frameDouble, alpha, blurAccumulator, 1.0 - alpha, 0, blurAccumulator);
+                    }
+                }
+
+                if (needMotionVariance)
+                {
+                    using var gray = new Mat();
+                    using var diff = new Mat();
+                    using var diffDouble = new Mat();
+                    using var diffSquared = new Mat();
                     Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
                     Cv2.Absdiff(gray, prevGray, diff);
                     diff.ConvertTo(diffDouble, MatType.CV_64FC1);
@@ -103,29 +144,52 @@ public static class LongExposureProcessor
 
             progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.Processing, 92, "Compositing results…", FramesProcessed: count, TotalFrames: estimatedTotal));
 
-            using var averageFrame = new Mat();
-            sumFrame.ConvertTo(averageFrame, MatType.CV_8UC3, 1.0 / count);
+            byte[]? averagePng = null;
+            if (needAverage)
+            {
+                using var averageFrame = new Mat();
+                sumFrame.ConvertTo(averageFrame, MatType.CV_8UC3, 1.0 / count);
+                averagePng = Encode(averageFrame);
+            }
 
-            using var maxMinusMin = new Mat();
-            Cv2.Absdiff(maxFrame, minFrame, maxMinusMin);
-            using var maxMinusMinNorm = NormalizeToFullRange(maxMinusMin, MatType.CV_8UC3);
+            byte[]? maximumPng = (selectedVariants & LongExposureVariants.Maximum) != LongExposureVariants.None ? Encode(maxFrame) : null;
+            byte[]? minimumPng = (selectedVariants & LongExposureVariants.Minimum) != LongExposureVariants.None ? Encode(minFrame) : null;
 
-            using var motionVarianceColorized = BuildMotionVarianceImage(motionSum, motionSqSum, Math.Max(count - 1, 1));
+            byte[]? maxMinusMinPng = null;
+            if ((selectedVariants & LongExposureVariants.MaxMinusMin) != LongExposureVariants.None)
+            {
+                using var maxMinusMin = new Mat();
+                Cv2.Absdiff(maxFrame, minFrame, maxMinusMin);
+                using var maxMinusMinNorm = NormalizeToFullRange(maxMinusMin, MatType.CV_8UC3);
+                maxMinusMinPng = Encode(maxMinusMinNorm);
+            }
 
-            using var motionBlurFrame = new Mat();
-            blurAccumulator.ConvertTo(motionBlurFrame, MatType.CV_8UC3);
+            byte[]? motionVariancePng = null;
+            if (needMotionVariance)
+            {
+                using var motionVarianceColorized = BuildMotionVarianceImage(motionSum, motionSqSum, Math.Max(count - 1, 1));
+                motionVariancePng = Encode(motionVarianceColorized);
+            }
 
-            Cv2.ImEncode(".jpg", averageFrame, out var finalPreviewBytes);
+            byte[]? motionBlurPng = null;
+            if (needMotionBlur)
+            {
+                using var motionBlurFrame = new Mat();
+                blurAccumulator.ConvertTo(motionBlurFrame, MatType.CV_8UC3);
+                motionBlurPng = Encode(motionBlurFrame);
+            }
+
+            var finalPreviewBytes = averagePng ?? maximumPng ?? minimumPng ?? motionBlurPng ?? motionVariancePng ?? maxMinusMinPng;
             progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.Done, 100, "Done", PreviewImageBytes: finalPreviewBytes));
 
             return new LongExposureResult
             {
-                AveragePng = Encode(averageFrame),
-                MaximumPng = Encode(maxFrame),
-                MinimumPng = Encode(minFrame),
-                MaxMinusMinPng = Encode(maxMinusMinNorm),
-                MotionVariancePng = Encode(motionVarianceColorized),
-                MotionBlurPng = Encode(motionBlurFrame),
+                AveragePng = averagePng,
+                MaximumPng = maximumPng,
+                MinimumPng = minimumPng,
+                MaxMinusMinPng = maxMinusMinPng,
+                MotionVariancePng = motionVariancePng,
+                MotionBlurPng = motionBlurPng,
                 FrameCount = count,
             };
         }, ct);

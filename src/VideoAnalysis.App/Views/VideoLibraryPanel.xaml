@@ -1,0 +1,89 @@
+<UserControl x:Class="VideoAnalysis.App.Views.VideoLibraryPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource CanonnSurface3Brush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="12">
+            <TextBlock Text="Video Library" FontSize="16" FontWeight="Bold"
+                       Foreground="{StaticResource CanonnTextBrightBrush}"/>
+            <Button Content="Upload Video…" Margin="0,8,0,0" Padding="8,6"
+                    Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                    Command="{Binding UploadCommand}"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" x:Name="LibraryScrollViewer" VerticalScrollBarVisibility="Auto"
+                      ScrollChanged="LibraryScrollViewer_ScrollChanged">
+            <ItemsControl ItemsSource="{Binding Entries}" Margin="8,0,8,8">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Vertical"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border x:Name="EntryRoot" Background="{StaticResource CanonnSurfaceBrush}"
+                                BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,8" Padding="8" Cursor="Hand"
+                                Loaded="EntryRoot_Loaded" Unloaded="EntryRoot_Unloaded">
+                            <Border.InputBindings>
+                                <MouseBinding MouseAction="LeftClick" Command="{Binding SelectCommand}"/>
+                            </Border.InputBindings>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- The thumbnail stays visible underneath at all times, so
+                                     selecting an entry never shows a blank/black gap while the
+                                     real video is still loading - the player only appears once
+                                     it has a frame ready, and the loading overlay covers the gap
+                                     until then. -->
+                                <Border Grid.Row="0" x:Name="ThumbnailContainer" SizeChanged="ThumbnailContainer_SizeChanged"
+                                        Background="{StaticResource CanonnSurface2Brush}"
+                                        CornerRadius="2" ClipToBounds="True">
+                                    <Grid>
+                                        <Image Source="{Binding ThumbnailImageSource}" Stretch="Uniform"/>
+                                        <MediaElement x:Name="Player" Stretch="Uniform" Visibility="Collapsed"
+                                                      LoadedBehavior="Manual" UnloadedBehavior="Manual"/>
+                                        <Border x:Name="LoadingOverlay" Background="#A0000000" Visibility="Collapsed">
+                                            <TextBlock Text="Loading…" Foreground="White" FontSize="11"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+
+                                <TextBlock Grid.Row="1" Margin="0,6,0,0" Text="{Binding DisplayLabel}"
+                                           FontWeight="SemiBold" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+
+                                <TextBlock Grid.Row="2" Margin="0,4,0,0" Text="{Binding StatusText}" FontSize="11"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"/>
+
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center"
+                                            Margin="0,6,0,0"
+                                            Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="⏪" Padding="6,2" Margin="2" Tag="{Binding ElementName=Player}" Click="RewindButton_Click"/>
+                                    <Button Content="▶" Padding="6,2" Margin="2" Tag="{Binding ElementName=Player}" Click="PlayButton_Click"/>
+                                    <Button Content="⏸" Padding="6,2" Margin="2" Tag="{Binding ElementName=Player}" Click="PauseButton_Click"/>
+                                    <Button Content="⏹" Padding="6,2" Margin="2" Tag="{Binding ElementName=Player}" Click="StopButton_Click"/>
+                                    <Button Content="⏩" Padding="6,2" Margin="2" Tag="{Binding ElementName=Player}" Click="FastForwardButton_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

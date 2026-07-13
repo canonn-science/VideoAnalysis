@@ -44,5 +44,5 @@ public sealed class SlitScanViewModel : ObservableObject
     public Task<byte[]?> LoadPreviewFrameAsync(CancellationToken ct)
         => VideoFilePath is null
             ? Task.FromResult<byte[]?>(null)
-            : SlitScanPreviewFrameReader.ReadRepresentativeFrameAsync(VideoFilePath, ct);
+            : VideoFrameReader.ReadRepresentativeFrameAsync(VideoFilePath, ct);
 }

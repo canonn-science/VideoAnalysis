@@ -1,31 +1,83 @@
-using System.Collections.ObjectModel;
+using System.IO;
 using VideoAnalysis.App.Infrastructure;
-using VideoAnalysis.Core.Diagnostics;
-using VideoAnalysis.Core.Domain;
-using VideoAnalysis.Core.Spansh;
-using VideoAnalysis.Core.Spansh.Models;
 using VideoAnalysis.Core.VideoAnalysis;
 using VideoAnalysis.Core.VideoAnalysis.LongExposure;
 
 namespace VideoAnalysis.App.ViewModels;
 
-/// <summary>Long Exposure's counterpart to <see cref="MainViewModel"/>/<see cref="StationViewModel"/>.
-/// System search is the same Spansh-backed flow as the other modes; the object list combines
-/// every body and orbital station in the system (<see cref="LongExposureTargetParser"/>) since
-/// this mode just needs an identity for the output filename, not rotation data.</summary>
-public sealed class LongExposureViewModel : ObservableObject, IDisposable
+/// <summary>Long Exposure is driven entirely by the shared video library selection (see
+/// <see cref="VideoLibraryViewModel.EntrySelected"/>) rather than its own system search - the
+/// selected library entry already carries whatever system/body/station identity it was tagged
+/// with, which is all this mode ever needed one for (naming the output file), same rationale as
+/// <see cref="SlitScanViewModel"/> not doing a Spansh lookup of its own.</summary>
+public sealed class LongExposureViewModel : ObservableObject
 {
-    private readonly SpanshClient _spanshClient = new();
-
-    private string _systemQuery = string.Empty;
+    private string? _videoFilePath;
+    private string? _systemName;
+    private string? _bodyOrStationName;
+    private string? _ringName;
+    private double _motionBlurAlpha = LongExposureProcessor.DefaultMotionBlurAlpha;
     private string? _errorMessage;
-    private bool _isBusy;
-    private string? _resolvedSystemName;
+    private LongExposureResult? _result;
+    private bool _includeAverage = true;
+    private bool _includeMaximum = true;
+    private bool _includeMinimum = true;
+    private bool _includeMaxMinusMin = true;
+    private bool _includeMotionVariance = true;
+    private bool _includeMotionBlur = true;
 
-    public string SystemQuery
+    public string? VideoFilePath
     {
-        get => _systemQuery;
-        set => SetField(ref _systemQuery, value);
+        get => _videoFilePath;
+        set
+        {
+            if (SetField(ref _videoFilePath, value))
+            {
+                OnPropertyChanged(nameof(VideoFileName));
+                OnPropertyChanged(nameof(HasVideo));
+            }
+        }
+    }
+
+    public string? VideoFileName => VideoFilePath is null ? null : Path.GetFileName(VideoFilePath);
+
+    public bool HasVideo => VideoFilePath is not null;
+
+    /// <summary>Captured from the selected library entry - used only to name the saved output
+    /// files, falling back to the video's own filename when the entry has no system tagged.</summary>
+    public string? SystemName
+    {
+        get => _systemName;
+        set => SetField(ref _systemName, value);
+    }
+
+    public string? BodyOrStationName
+    {
+        get => _bodyOrStationName;
+        set => SetField(ref _bodyOrStationName, value);
+    }
+
+    public string? RingName
+    {
+        get => _ringName;
+        set => SetField(ref _ringName, value);
+    }
+
+    /// <summary>The name a saved output image is based on: the most specific of ring/body/system
+    /// that's tagged on the selected library entry - the same Ring &gt; Body &gt; System priority
+    /// <see cref="VideoUploadMetadataViewModel.SuggestedFileBaseName"/> uses to rename the source
+    /// video itself, so a saved image and its source video end up named consistently.</summary>
+    public string? SuggestedFileBaseName =>
+        !string.IsNullOrWhiteSpace(RingName) ? RingName :
+        !string.IsNullOrWhiteSpace(BodyOrStationName) ? BodyOrStationName :
+        SystemName;
+
+    /// <summary>0.01-1.0 blend weight for the Motion Blur variant's exponential moving average -
+    /// see <see cref="LongExposureProcessor.GenerateAsync"/>.</summary>
+    public double MotionBlurAlpha
+    {
+        get => _motionBlurAlpha;
+        set => SetField(ref _motionBlurAlpha, Math.Clamp(value, 0.01, 1.0));
     }
 
     public string? ErrorMessage
@@ -34,119 +86,77 @@ public sealed class LongExposureViewModel : ObservableObject, IDisposable
         set => SetField(ref _errorMessage, value);
     }
 
-    public bool IsBusy
+    /// <summary>The most recently generated set of six variants, shown inline in the tab rather
+    /// than a separate results window - null before the first generation (or after selecting a
+    /// different video, since a stale result no longer corresponds to what's loaded).</summary>
+    public LongExposureResult? Result
     {
-        get => _isBusy;
-        set => SetField(ref _isBusy, value);
-    }
-
-    public string? ResolvedSystemName
-    {
-        get => _resolvedSystemName;
-        set => SetField(ref _resolvedSystemName, value);
-    }
-
-    public ObservableCollection<SpanshSearchSystem> Suggestions { get; } = new();
-
-    public ObservableCollection<LongExposureRowViewModel> Targets { get; } = new();
-
-    /// <summary>Raised when the user clicks "Select Video…" on a target row; the view handles the file picker.</summary>
-    public event Action<LongExposureRowViewModel>? VideoSelectionRequested;
-
-    public async Task RefreshSuggestionsAsync(string query, CancellationToken ct)
-    {
-        if (query.Length < 3)
+        get => _result;
+        set
         {
-            Suggestions.Clear();
-            return;
-        }
-
-        try
-        {
-            var response = await _spanshClient.SearchSystemsAsync(query, ct).ConfigureAwait(true);
-            Suggestions.Clear();
-            foreach (var system in response.MinMax)
+            if (SetField(ref _result, value))
             {
-                Suggestions.Add(system);
+                OnPropertyChanged(nameof(HasResult));
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // superseded by a newer keystroke; ignore
-        }
-        catch (Exception ex)
-        {
-            AppLog.LogError("LongExposure.RefreshSuggestions", ex);
-            ErrorMessage = $"Search failed: {ex.Message}";
         }
     }
 
-    public async Task SubmitAsync(SpanshSearchSystem? chosenSystem)
+    public bool HasResult => Result is not null;
+
+    /// <summary>Unchecking a mode skips generating it entirely (see
+    /// <see cref="LongExposureProcessor.GenerateAsync"/>), not just hiding it afterward - so
+    /// deselecting variants you don't need speeds up generation.</summary>
+    public bool IncludeAverage
     {
-        if (IsBusy)
+        get => _includeAverage;
+        set => SetField(ref _includeAverage, value);
+    }
+
+    public bool IncludeMaximum
+    {
+        get => _includeMaximum;
+        set => SetField(ref _includeMaximum, value);
+    }
+
+    public bool IncludeMinimum
+    {
+        get => _includeMinimum;
+        set => SetField(ref _includeMinimum, value);
+    }
+
+    public bool IncludeMaxMinusMin
+    {
+        get => _includeMaxMinusMin;
+        set => SetField(ref _includeMaxMinusMin, value);
+    }
+
+    public bool IncludeMotionVariance
+    {
+        get => _includeMotionVariance;
+        set => SetField(ref _includeMotionVariance, value);
+    }
+
+    public bool IncludeMotionBlur
+    {
+        get => _includeMotionBlur;
+        set => SetField(ref _includeMotionBlur, value);
+    }
+
+    public LongExposureVariants SelectedVariants
+    {
+        get
         {
-            return;
-        }
-
-        ErrorMessage = null;
-        Targets.Clear();
-        IsBusy = true;
-        try
-        {
-            var resolved = chosenSystem;
-            if (resolved is null)
-            {
-                var query = SystemQuery.Trim();
-                if (query.Length == 0)
-                {
-                    ErrorMessage = "Enter a system name.";
-                    return;
-                }
-
-                var response = await _spanshClient.SearchSystemsAsync(query).ConfigureAwait(true);
-                resolved = response.MinMax.FirstOrDefault(s => string.Equals(s.Name, query, StringComparison.OrdinalIgnoreCase));
-                if (resolved is null)
-                {
-                    ErrorMessage = $"System \"{query}\" not found.";
-                    return;
-                }
-            }
-
-            var dump = await _spanshClient.GetDumpAsync(resolved.Id64).ConfigureAwait(true);
-            if (dump is null)
-            {
-                ErrorMessage = $"System \"{resolved.Name}\" not found.";
-                return;
-            }
-
-            var targets = LongExposureTargetParser.ExtractTargets(dump);
-            ResolvedSystemName = resolved.Name;
-            foreach (var target in targets)
-            {
-                Targets.Add(new LongExposureRowViewModel(target, row => VideoSelectionRequested?.Invoke(row)));
-            }
-
-            if (targets.Count == 0)
-            {
-                ErrorMessage = $"\"{resolved.Name}\" has no bodies or stations.";
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLog.LogError("LongExposure.SystemLookup", ex);
-            ErrorMessage = $"Lookup failed: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
+            var variants = LongExposureVariants.None;
+            if (IncludeAverage) variants |= LongExposureVariants.Average;
+            if (IncludeMaximum) variants |= LongExposureVariants.Maximum;
+            if (IncludeMinimum) variants |= LongExposureVariants.Minimum;
+            if (IncludeMaxMinusMin) variants |= LongExposureVariants.MaxMinusMin;
+            if (IncludeMotionVariance) variants |= LongExposureVariants.MotionVariance;
+            if (IncludeMotionBlur) variants |= LongExposureVariants.MotionBlur;
+            return variants;
         }
     }
 
     public Task<LongExposureResult> GenerateAsync(string videoPath, IProgress<VideoAnalysisProgress> progress, CancellationToken ct)
-        => LongExposureProcessor.GenerateAsync(videoPath, progress, ct);
-
-    public void Dispose()
-    {
-        _spanshClient.Dispose();
-    }
+        => LongExposureProcessor.GenerateAsync(videoPath, MotionBlurAlpha, SelectedVariants, progress, ct);
 }

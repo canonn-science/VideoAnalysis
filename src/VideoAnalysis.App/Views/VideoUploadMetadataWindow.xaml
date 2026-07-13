@@ -1,0 +1,95 @@
+<Window x:Class="VideoAnalysis.App.Views.VideoUploadMetadataWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        xmlns:converters="clr-namespace:VideoAnalysis.App.Converters"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        Icon="/Assets/canonn.ico"
+        Title="Add to Video Library" Height="560" Width="520"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibility"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Add to Video Library" FontSize="20" FontWeight="Bold"
+                   Foreground="{StaticResource CanonnAccentBrush}"/>
+        <TextBlock Grid.Row="1" Margin="0,4,0,16" TextWrapping="Wrap" FontSize="13"
+                   Foreground="{StaticResource CanonnTextMutedBrush}"
+                   Text="System is required; body, ring, and station are optional and help the analysis tabs skip re-entering the same information."/>
+
+        <TextBlock Grid.Row="2" Text="System" FontWeight="SemiBold" Margin="0,0,0,4"
+                   Foreground="{StaticResource CanonnTextBrightBrush}"/>
+        <Grid Grid.Row="3" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ui:AutoSuggestBox x:Name="SystemSearchBox" Grid.Column="0"
+                               PlaceholderText="Type at least 3 characters of a system name…"
+                               Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                               ItemsSource="{Binding Suggestions}"
+                               DisplayMemberPath="Name"
+                               TextMemberPath="Name"
+                               TextChanged="SystemSearchBox_TextChanged"
+                               QuerySubmitted="SystemSearchBox_QuerySubmitted"
+                               SuggestionChosen="SystemSearchBox_SuggestionChosen"/>
+            <Button Grid.Column="1" Content="Look Up" Margin="8,0,0,0" Padding="12,6"
+                    Click="LookUpButton_Click"/>
+        </Grid>
+
+        <TextBlock Grid.Row="4" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,0,0,8"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
+
+        <ProgressBar Grid.Row="5" IsIndeterminate="True" Height="4" Margin="0,0,0,12"
+                     Foreground="{StaticResource CanonnAccentBrush}"
+                     Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+
+        <TextBlock Grid.Row="6" Text="Body" FontWeight="SemiBold" Margin="0,0,0,4"
+                   Foreground="{StaticResource CanonnTextBrightBrush}"/>
+        <ComboBox Grid.Row="7" Margin="0,0,0,12" IsEditable="True"
+                  ItemsSource="{Binding BodyNames}"
+                  Text="{Binding BodyNameDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+        <StackPanel Grid.Row="8">
+            <StackPanel Visibility="{Binding HasRingOptions, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Ring / Belt (optional)" FontWeight="SemiBold" Margin="0,0,0,4"
+                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                <ComboBox Margin="0,0,0,12" IsEditable="True"
+                          ItemsSource="{Binding RingNames}"
+                          Text="{Binding SelectedRingName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+
+            <TextBlock Text="Station (optional)" FontWeight="SemiBold" Margin="0,0,0,4"
+                       Foreground="{StaticResource CanonnTextBrightBrush}"/>
+            <ComboBox Margin="0,0,0,12" IsEditable="True"
+                      ItemsSource="{Binding StationNames}"
+                      Text="{Binding StationNameDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        </StackPanel>
+
+        <CheckBox x:Name="RenameCheckBox" Grid.Row="9" Margin="0,12,0,0" VerticalContentAlignment="Center"
+                  Visibility="Collapsed"/>
+
+        <StackPanel Grid.Row="10" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" Padding="16,8" Margin="0,0,8,0" Click="CancelButton_Click" IsCancel="True"/>
+            <Button Content="Add to Library" Padding="24,8" Background="{StaticResource CanonnAccentBrush}"
+                    Foreground="White" Click="AddButton_Click" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
