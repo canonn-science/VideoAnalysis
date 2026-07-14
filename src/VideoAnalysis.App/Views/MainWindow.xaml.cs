@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         _viewModel.VideoLibrary.UploadRequested += OnLibraryUploadRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
+        _viewModel.JetCone.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForRingRotation;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForStationRotation;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForSlitScan;
