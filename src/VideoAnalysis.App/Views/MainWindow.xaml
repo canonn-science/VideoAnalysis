@@ -813,7 +813,7 @@
                                                Foreground="{StaticResource CanonnTextBrightBrush}"/>
                                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
                                                Foreground="{StaticResource CanonnTextMutedBrush}"
-                                               Text="Every mode shares the video library on the left instead of having its own file picker, so a video you tag once (system, body, ring/station) is ready for any mode. Click &quot;Upload Video…&quot; to add a file - a prompt lets you confirm or search for what it was recorded at. The library only stores a reference to the file's location; it never copies or moves it, so an entry shows as missing if the file is later moved, renamed, or deleted outside the app."/>
+                                               Text="Every mode shares the video library on the left instead of having its own file picker, so a video you tag once (system, body, ring/station) is ready for any mode. Click &quot;Upload Video…&quot; to add a file - a prompt lets you confirm or search for what it was recorded at. The library stores a reference to the file's location instead of copying videos into an app folder; if you accept the suggested rename in the upload dialog, the app may rename or move the file (depending on your Configuration settings). An entry shows as missing if the file is later moved, renamed, or deleted outside the app."/>
                                 </StackPanel>
                             </Border>
 
