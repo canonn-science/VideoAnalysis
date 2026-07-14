@@ -42,11 +42,14 @@ public sealed class MeasurementCsvStore
         File.Move(legacyPath, CsvPath);
     }
 
-    /// <summary>Transparently upgrades a CSV written by an older version of the app (missing the
-    /// "Body Type"/"Body Mass"/"Ring Type"/"Ring Mass" columns) to the current schema, by reading
+    /// <summary>Transparently upgrades a CSV written by an older version of the app (missing any
+    /// column up to and including "Body Radius", the newest one) to the current schema, by reading
     /// every row - which already tolerates missing columns via <see cref="ReadAll"/> - and
     /// rewriting the file with the current header. New columns come out empty for pre-existing
-    /// rows, which is exactly what <see cref="SaveAll"/> does for a null/default field.</summary>
+    /// rows, which is exactly what <see cref="SaveAll"/> does for a null/default field. Keying off
+    /// the newest column (rather than the oldest missing one, e.g. "Body Type") means a file that's
+    /// missing only "Body Radius" - because it was written after "Body Type" existed but before
+    /// "Body Radius" did - still gets migrated.</summary>
     private void MigrateIfNeeded()
     {
         if (!File.Exists(CsvPath))
@@ -60,7 +63,7 @@ public sealed class MeasurementCsvStore
             headerLine = reader.ReadLine();
         }
 
-        if (headerLine is null || headerLine.Contains("Body Type", StringComparison.Ordinal))
+        if (headerLine is null || headerLine.Contains("Body Radius", StringComparison.Ordinal))
         {
             return;
         }

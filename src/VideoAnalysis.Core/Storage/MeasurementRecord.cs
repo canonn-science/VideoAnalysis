@@ -36,6 +36,11 @@ public sealed class MeasurementRecord
     [Name("Body Mass")]
     public double? BodyMassEarthMasses { get; set; }
 
+    /// <summary>Body radius, in kilometers. Null for rows written before this column existed, or
+    /// where the source radius was unknown.</summary>
+    [Name("Body Radius")]
+    public double? BodyRadiusKm { get; set; }
+
     [Name("Ring Name")]
     public string RingName { get; set; } = string.Empty;
 

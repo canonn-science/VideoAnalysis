@@ -89,6 +89,7 @@ z
 Body Name
 Body Type
 Body Mass
+Body Radius
 Ring Name
 Ring Type
 Ring Mass
@@ -101,18 +102,19 @@ video filename
 submitted
 ```
 
-Body Type/Ring Type are the subType/type strings from Spansh; Body Mass is in Earth masses; Ring
-Mass is passed through as reported by Spansh. All four are blank for rows written before these
-columns existed.
+Body Type/Ring Type are the subType/type strings from Spansh; Body Mass is in Earth masses; Body
+Radius is in kilometers; Ring Mass is passed through as reported by Spansh. All five are blank for
+rows written before these columns existed.
 
 A "Measurement History" tab lists the logged rows and has a button to reveal the CSV file on disk.
 
 ### Migrating older CSV files
 
-`MeasurementCsvStore` checks the file's header on construction. If it predates the "Body Type"
-column, every row is read (missing columns default to blank/null, same as normal tolerant
-reading) and the whole file is rewritten with the current header - so the upgrade happens once,
-transparently, the first time the app runs against an old CSV, rather than a version at a time.
+`MeasurementCsvStore` checks the file's header on construction. If it predates the newest column
+("Body Radius"), every row is read (missing columns default to blank/null, same as normal
+tolerant reading) and the whole file is rewritten with the current header - so the upgrade happens
+once, transparently, the first time the app runs against an old CSV, rather than a version at a
+time.
 
 ## Commander name
 
@@ -154,9 +156,10 @@ to entry ids:
 | Observed Period (seconds)   | `entry.1394317518`      |
 
 Radii/width are converted from the meters stored internally to kilometers; periods are already in
-seconds. Body Radius/Type/Mass are only available when submitting live from the results dialog
-(sourced from the Spansh dump via `RingInfo`) - resubmitting an older history row that predates
-these columns sends an empty Body Radius, since it isn't persisted to the CSV.
+seconds. Body Radius/Type/Mass are sourced from the Spansh dump via `RingInfo` when submitting
+live from the results dialog, and from the CSV's own columns when resubmitting a history row -
+resubmitting an older row that predates these columns still sends them blank, since there's
+nothing on disk to read.
 
 ### Detecting already-submitted measurements
 

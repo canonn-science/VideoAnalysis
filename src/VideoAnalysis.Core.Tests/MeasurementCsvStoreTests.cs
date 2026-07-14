@@ -37,14 +37,36 @@ public class MeasurementCsvStoreTests : IDisposable
         Assert.True(record.Submitted);
         Assert.Equal(string.Empty, record.BodyType);
         Assert.Null(record.BodyMassEarthMasses);
+        Assert.Null(record.BodyRadiusKm);
         Assert.Equal(string.Empty, record.RingType);
         Assert.Null(record.RingMassKg);
 
         var headerLine = File.ReadLines(CsvPath).First();
         Assert.Contains("Body Type", headerLine);
         Assert.Contains("Body Mass", headerLine);
+        Assert.Contains("Body Radius", headerLine);
         Assert.Contains("Ring Type", headerLine);
         Assert.Contains("Ring Mass", headerLine);
+    }
+
+    [Fact]
+    public void Constructor_MigratesHeaderMissingOnlyBodyRadius_PreservingExistingDataAndAddingEmptyColumn()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(CsvPath,
+            "Timestamp,System Name,id64,x,y,z,Body Name,Body Type,Body Mass,Ring Name,Ring Type,Ring Mass,innerRadius,outerRadius,Width,estimated rotation,observed rotation,video filename,submitted\r\n" +
+            "2026-01-01T00:00:00Z,Test System,12345,1,2,3,Test Body,Icy body,1.5,Test Ring,Icy,2.5,100000,180000,80000,1000,1050,test.mp4,True\r\n");
+
+        var store = new MeasurementCsvStore(CsvPath);
+
+        var record = Assert.Single(store.ReadAll());
+        Assert.Equal("Icy body", record.BodyType);
+        Assert.Equal(1.5, record.BodyMassEarthMasses);
+        Assert.Null(record.BodyRadiusKm);
+        Assert.Equal("Icy", record.RingType);
+
+        var headerLine = File.ReadLines(CsvPath).First();
+        Assert.Contains("Body Radius", headerLine);
     }
 
     [Fact]
@@ -52,8 +74,8 @@ public class MeasurementCsvStoreTests : IDisposable
     {
         Directory.CreateDirectory(_directory);
         var original =
-            "Timestamp,System Name,id64,x,y,z,Body Name,Body Type,Body Mass,Ring Name,Ring Type,Ring Mass,innerRadius,outerRadius,Width,estimated rotation,observed rotation,video filename,submitted\r\n" +
-            "2026-01-01T00:00:00Z,Test System,12345,1,2,3,Test Body,Icy body,1.5,Test Ring,Icy,2.5,100000,180000,80000,1000,1050,test.mp4,True\r\n";
+            "Timestamp,System Name,id64,x,y,z,Body Name,Body Type,Body Mass,Body Radius,Ring Name,Ring Type,Ring Mass,innerRadius,outerRadius,Width,estimated rotation,observed rotation,video filename,submitted\r\n" +
+            "2026-01-01T00:00:00Z,Test System,12345,1,2,3,Test Body,Icy body,1.5,6378,Test Ring,Icy,2.5,100000,180000,80000,1000,1050,test.mp4,True\r\n";
         File.WriteAllText(CsvPath, original);
 
         var store = new MeasurementCsvStore(CsvPath);
@@ -61,6 +83,7 @@ public class MeasurementCsvStoreTests : IDisposable
 
         Assert.Equal("Icy body", record.BodyType);
         Assert.Equal(1.5, record.BodyMassEarthMasses);
+        Assert.Equal(6378, record.BodyRadiusKm);
         Assert.Equal("Icy", record.RingType);
         Assert.Equal(2.5, record.RingMassKg);
     }
