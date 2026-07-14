@@ -11,8 +11,8 @@ public sealed class AppSettingsStore
         SettingsPath = settingsPath ?? Path.Combine(StoragePaths.Root, "settings.json");
     }
 
-    /// <summary>True once a settings file has been written - used to detect a first run,
-    /// so callers should check this before <see cref="Load"/>/<see cref="Save"/> create one.</summary>
+    /// <summary>True when a settings file already exists on disk - used to detect a first run.
+    /// Callers should check this before any operation that might write settings (for example, <see cref="Save"/>).</summary>
     public bool SettingsFileExists => File.Exists(SettingsPath);
 
     public AppSettings Load()
