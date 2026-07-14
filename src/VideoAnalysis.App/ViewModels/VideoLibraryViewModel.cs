@@ -172,6 +172,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         {
             entry.IsSelected = false;
             SelectedEntry = null;
+            SelectFirstEntryIfAny();
         }
 
         _store.Remove(entry.Id);
