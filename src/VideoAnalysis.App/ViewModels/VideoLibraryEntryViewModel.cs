@@ -14,15 +14,19 @@ public sealed class VideoLibraryEntryViewModel : ObservableObject
     private bool _thumbnailLoadAttempted;
     private bool _isSelected;
 
-    public VideoLibraryEntryViewModel(VideoLibraryEntry entry, Action<VideoLibraryEntryViewModel>? onSelect = null)
+    public VideoLibraryEntryViewModel(
+        VideoLibraryEntry entry, Action<VideoLibraryEntryViewModel>? onSelect = null, Action<VideoLibraryEntryViewModel>? onRemove = null)
     {
         Entry = entry;
         SelectCommand = new RelayCommand(() => onSelect?.Invoke(this));
+        RemoveCommand = new RelayCommand(() => onRemove?.Invoke(this));
     }
 
     public VideoLibraryEntry Entry { get; }
 
     public RelayCommand SelectCommand { get; }
+
+    public RelayCommand RemoveCommand { get; }
 
     public Guid Id => Entry.Id;
 

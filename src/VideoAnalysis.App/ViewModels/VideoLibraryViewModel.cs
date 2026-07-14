@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using Microsoft.VisualBasic.FileIO;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.Core.Diagnostics;
 using VideoAnalysis.Core.Storage;
@@ -42,12 +44,16 @@ public sealed class VideoLibraryViewModel : ObservableObject
     /// <summary>Raised whenever the active/selected library video changes.</summary>
     public event Action<VideoLibraryEntryViewModel>? EntrySelected;
 
+    /// <summary>Raised when the user clicks an entry's remove button; the view handles the
+    /// confirmation prompt (index-only vs. also deleting the file), then calls <see cref="Remove"/>.</summary>
+    public event Action<VideoLibraryEntryViewModel>? RemoveRequested;
+
     public void LoadInitialPage()
     {
         Entries.Clear();
         foreach (var entry in _store.GetPage(0, PageSize))
         {
-            Entries.Add(new VideoLibraryEntryViewModel(entry, Select));
+            Entries.Add(new VideoLibraryEntryViewModel(entry, Select, RequestRemove));
         }
     }
 
@@ -65,7 +71,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         {
             foreach (var entry in _store.GetPage(Entries.Count, PageSize))
             {
-                Entries.Add(new VideoLibraryEntryViewModel(entry, Select));
+                Entries.Add(new VideoLibraryEntryViewModel(entry, Select, RequestRemove));
             }
         }
         finally
@@ -133,18 +139,59 @@ public sealed class VideoLibraryViewModel : ObservableObject
         VideoLibraryEntryViewModel rowVm;
         if (existing is not null)
         {
-            rowVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? new VideoLibraryEntryViewModel(existing, Select);
+            rowVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? new VideoLibraryEntryViewModel(existing, Select, RequestRemove);
         }
         else
         {
             var added = _store.Add(entry);
-            rowVm = new VideoLibraryEntryViewModel(added, Select);
+            rowVm = new VideoLibraryEntryViewModel(added, Select, RequestRemove);
             Entries.Insert(0, rowVm);
             _ = GenerateThumbnailAsync(rowVm);
         }
 
         Select(rowVm);
         return rowVm;
+    }
+
+    private void RequestRemove(VideoLibraryEntryViewModel entry) => RemoveRequested?.Invoke(entry);
+
+    /// <summary>Removes an entry from the library index and, if <paramref name="deleteFile"/> is
+    /// set, sends its underlying video file to the Recycle Bin too (never a permanent delete - this
+    /// is footage the user may have spent real effort capturing, and a misclick between the two
+    /// confirmation options shouldn't be unrecoverable). Deselecting happens before the entry
+    /// leaves <see cref="Entries"/>, not after - once removed, the ItemsControl tears down that
+    /// row's container (see VideoLibraryPanel's Unloaded handler) and stops listening for the
+    /// IsSelected change that would otherwise stop its MediaElement, so doing this in the other
+    /// order can leave the file locked out from under the delete below. Returns false if
+    /// <paramref name="deleteFile"/> was requested but the file couldn't be removed (e.g. still
+    /// locked, or a permissions error), so the caller can tell the user - a silently-failed delete
+    /// would contradict what they just confirmed.</summary>
+    public bool Remove(VideoLibraryEntryViewModel entry, bool deleteFile)
+    {
+        if (SelectedEntry == entry)
+        {
+            entry.IsSelected = false;
+            SelectedEntry = null;
+            SelectFirstEntryIfAny();
+        }
+
+        _store.Remove(entry.Id);
+        Entries.Remove(entry);
+
+        if (deleteFile && File.Exists(entry.FilePath))
+        {
+            try
+            {
+                FileSystem.DeleteFile(entry.FilePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+            }
+            catch (Exception ex)
+            {
+                AppLog.LogError("VideoLibraryRemove", ex);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Updates the stored path after an in-place rename (e.g. the ring-rename flow),

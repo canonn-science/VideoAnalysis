@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.VideoLibrary.UploadRequested += OnLibraryUploadRequested;
+        _viewModel.VideoLibrary.RemoveRequested += OnLibraryRemoveRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.JetCone.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForRingRotation;
@@ -273,6 +274,62 @@ public partial class MainWindow : Window
         }
 
         PromptAddVideoToLibrary(dialog.FileName);
+    }
+
+    private async void OnLibraryRemoveRequested(VideoLibraryEntryViewModel entry)
+    {
+        var result = await new ContentDialog
+        {
+            Title = "Remove video from library?",
+            Content = $"Remove \"{entry.FileName}\" from the library? The video file itself won't be touched unless you choose to delete it too.",
+            PrimaryButtonText = "Remove from Library",
+            SecondaryButtonText = "Also Delete File",
+            CloseButtonText = "Cancel",
+        }.ShowAsync();
+
+        if (result == ContentDialogResult.None)
+        {
+            return;
+        }
+
+        var deleteFile = result == ContentDialogResult.Secondary;
+
+        // Capture which tabs had this entry loaded before Remove/ClearRemovedVideo clears their
+        // VideoFilePath out from under this check.
+        var wasRingRotationActive = _viewModel.ActiveLibraryVideo == entry;
+        var wasStationsActive = string.Equals(_viewModel.Stations.VideoFilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase);
+        var wasJetConeActive = string.Equals(_viewModel.JetCone.VideoFilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase);
+        var wasSlitScanActive = string.Equals(_viewModel.SlitScan.VideoFilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase);
+
+        var deleteSucceeded = _viewModel.VideoLibrary.Remove(entry, deleteFile);
+        _viewModel.ClearRemovedVideo(entry);
+
+        if (wasRingRotationActive)
+        {
+            RingRotationPreviewImage.Source = null;
+        }
+        if (wasStationsActive)
+        {
+            StationPreviewImage.Source = null;
+        }
+        if (wasJetConeActive)
+        {
+            JetConePreviewImage.Source = null;
+        }
+        if (wasSlitScanActive)
+        {
+            SlitScanControls.SetPreviewFrame(null);
+        }
+
+        if (deleteFile && !deleteSucceeded)
+        {
+            await new ContentDialog
+            {
+                Title = "Couldn't delete video file",
+                Content = $"\"{entry.FileName}\" was removed from the library, but its video file couldn't be deleted. It may still be open in another program.",
+                CloseButtonText = "OK",
+            }.ShowAsync();
+        }
     }
 
     /// <summary>Shows the metadata modal for a freshly picked video and, if the user confirms,
