@@ -40,6 +40,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public MainViewModel()
     {
+        IsFirstRun = !_settingsStore.SettingsFileExists;
         var settings = _settingsStore.Load();
         _commanderName = settings.CommanderName ?? DefaultCommanderName;
         _monitorJournals = settings.MonitorJournals;
@@ -67,6 +68,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         get => _systemQuery;
         set => SetField(ref _systemQuery, value);
     }
+
+    /// <summary>True when no settings file existed at startup - used to send the user to the
+    /// Configuration tab first, since nothing has been set up yet.</summary>
+    public bool IsFirstRun { get; }
 
     public string CommanderName
     {

@@ -59,6 +59,11 @@ public partial class MainWindow : Window
         Loaded += async (_, _) => await CheckForUpdatesAsync();
         VersionText.Text = $"Version v{GetCurrentVersion().ToString(3)}";
         UpdateClaudeApiKeyStatusText();
+
+        if (_viewModel.IsFirstRun)
+        {
+            RootTabControl.SelectedItem = ConfigurationTabItem;
+        }
     }
 
     private void UpdateClaudeApiKeyStatusText()

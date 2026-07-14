@@ -54,7 +54,7 @@
             <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
                           Background="{StaticResource CanonnBorderBrush}"/>
 
-        <TabControl Grid.Column="2">
+        <TabControl x:Name="RootTabControl" Grid.Column="2">
             <TabItem Header="Ring Rotation">
                 <TabControl Margin="0,8,0,0">
                     <TabItem Header="System">
@@ -700,7 +700,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Configuration">
+            <TabItem x:Name="ConfigurationTabItem" Header="Configuration">
                 <Grid Margin="12">
                     <StackPanel MaxWidth="640" HorizontalAlignment="Left">
                         <TextBlock Text="Configuration" FontSize="22" FontWeight="Bold"
