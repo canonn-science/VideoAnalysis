@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.Core.Diagnostics;
 using VideoAnalysis.Core.Storage;
@@ -42,12 +43,16 @@ public sealed class VideoLibraryViewModel : ObservableObject
     /// <summary>Raised whenever the active/selected library video changes.</summary>
     public event Action<VideoLibraryEntryViewModel>? EntrySelected;
 
+    /// <summary>Raised when the user clicks an entry's remove button; the view handles the
+    /// confirmation prompt (index-only vs. also deleting the file), then calls <see cref="Remove"/>.</summary>
+    public event Action<VideoLibraryEntryViewModel>? RemoveRequested;
+
     public void LoadInitialPage()
     {
         Entries.Clear();
         foreach (var entry in _store.GetPage(0, PageSize))
         {
-            Entries.Add(new VideoLibraryEntryViewModel(entry, Select));
+            Entries.Add(new VideoLibraryEntryViewModel(entry, Select, RequestRemove));
         }
     }
 
@@ -65,7 +70,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         {
             foreach (var entry in _store.GetPage(Entries.Count, PageSize))
             {
-                Entries.Add(new VideoLibraryEntryViewModel(entry, Select));
+                Entries.Add(new VideoLibraryEntryViewModel(entry, Select, RequestRemove));
             }
         }
         finally
@@ -138,13 +143,46 @@ public sealed class VideoLibraryViewModel : ObservableObject
         else
         {
             var added = _store.Add(entry);
-            rowVm = new VideoLibraryEntryViewModel(added, Select);
+            rowVm = new VideoLibraryEntryViewModel(added, Select, RequestRemove);
             Entries.Insert(0, rowVm);
             _ = GenerateThumbnailAsync(rowVm);
         }
 
         Select(rowVm);
         return rowVm;
+    }
+
+    private void RequestRemove(VideoLibraryEntryViewModel entry) => RemoveRequested?.Invoke(entry);
+
+    /// <summary>Removes an entry from the library index and, if <paramref name="deleteFile"/> is
+    /// set, deletes its underlying video file from disk too. A failed file delete is logged but
+    /// doesn't stop the index removal - the entry pointed at a file the user was trying to get rid
+    /// of either way.</summary>
+    public void Remove(VideoLibraryEntryViewModel entry, bool deleteFile)
+    {
+        _store.Remove(entry.Id);
+        Entries.Remove(entry);
+
+        if (SelectedEntry == entry)
+        {
+            entry.IsSelected = false;
+            SelectedEntry = null;
+        }
+
+        if (deleteFile)
+        {
+            try
+            {
+                if (File.Exists(entry.FilePath))
+                {
+                    File.Delete(entry.FilePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLog.LogError("VideoLibraryRemove", ex);
+            }
+        }
     }
 
     /// <summary>Updates the stored path after an in-place rename (e.g. the ring-rename flow),

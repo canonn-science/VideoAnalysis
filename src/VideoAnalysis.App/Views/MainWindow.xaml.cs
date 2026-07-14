@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.VideoLibrary.UploadRequested += OnLibraryUploadRequested;
+        _viewModel.VideoLibrary.RemoveRequested += OnLibraryRemoveRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.JetCone.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForRingRotation;
@@ -268,6 +269,25 @@ public partial class MainWindow : Window
         }
 
         PromptAddVideoToLibrary(dialog.FileName);
+    }
+
+    private async void OnLibraryRemoveRequested(VideoLibraryEntryViewModel entry)
+    {
+        var result = await new ContentDialog
+        {
+            Title = "Remove video from library?",
+            Content = $"Remove \"{entry.FileName}\" from the library?",
+            PrimaryButtonText = "Remove from Index",
+            SecondaryButtonText = "Remove from Index and Delete Video File",
+            CloseButtonText = "Cancel",
+        }.ShowAsync();
+
+        if (result == ContentDialogResult.None)
+        {
+            return;
+        }
+
+        _viewModel.VideoLibrary.Remove(entry, deleteFile: result == ContentDialogResult.Secondary);
     }
 
     /// <summary>Shows the metadata modal for a freshly picked video and, if the user confirms,
