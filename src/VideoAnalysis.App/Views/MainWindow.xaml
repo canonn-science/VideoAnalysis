@@ -419,6 +419,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Text="Confirm the distance reading" FontSize="16" FontWeight="SemiBold"
@@ -443,6 +444,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
                                         <TextBlock Grid.Column="0" Text="Distance (Ls):" VerticalAlignment="Center" FontWeight="SemiBold"
@@ -454,12 +456,20 @@
                                                        Text="{Binding DistanceSourceLabel}"/>
                                         </StackPanel>
 
-                                        <Button Grid.Column="2" Content="Discard" Padding="16,8" Margin="0,0,8,0"
+                                        <Button x:Name="JetConeSendToCanonnButton" Grid.Column="2" Content="Send to Canonn"
+                                                Padding="16,8" Margin="0,0,8,0"
+                                                IsEnabled="{Binding CanSubmitReviewToCanonn}"
+                                                Click="JetConeSendToCanonnButton_Click"/>
+                                        <Button Grid.Column="3" Content="Discard" Padding="16,8" Margin="0,0,8,0"
                                                 Click="JetConeDiscardReviewButton_Click"/>
-                                        <Button Grid.Column="3" Content="Save Measurement" Padding="24,8"
+                                        <Button Grid.Column="4" Content="Save Measurement" Padding="24,8"
                                                 Background="{StaticResource CanonnAccentBrush}" Foreground="White"
                                                 Click="JetConeSaveMeasurementButton_Click"/>
                                     </Grid>
+
+                                    <TextBlock Grid.Row="5" Text="{Binding CanonnSubmitError}" Foreground="#FF6B6B" Margin="0,8,0,0"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding CanonnSubmitError, Converter={StaticResource StringToVisibility}}"/>
                                 </Grid>
                             </Grid>
                         </ScrollViewer>
@@ -473,8 +483,9 @@
                             </Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
                                 <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,6" Margin="0,0,8,0"/>
-                                <Button Content="Show File on Disk" Command="{Binding ShowOnDiskCommand}" Padding="12,6"
+                                <Button Content="Show File on Disk" Command="{Binding ShowOnDiskCommand}" Padding="12,6" Margin="0,0,8,0"
                                         Background="{StaticResource CanonnAccentBrush}" Foreground="White"/>
+                                <Button Content="Send Selected to Canonn" Command="{Binding SendSelectedToCanonnCommand}" Padding="12,6"/>
                             </StackPanel>
                             <DataGrid Grid.Row="1" ItemsSource="{Binding Records}" AutoGenerateColumns="False"
                                       IsReadOnly="True" CanUserAddRows="False"
@@ -484,11 +495,40 @@
                                       AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
                                       BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
                                 <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          IsEnabled="{Binding CanSend}"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
                                     <DataGridTextColumn Header="Body" Binding="{Binding BodyName}" Width="Auto"/>
                                     <DataGridTextColumn Header="Distance" Binding="{Binding DistanceDisplay}" Width="Auto"/>
                                     <DataGridTextColumn Header="Rotational Period" Binding="{Binding RotationalPeriodDisplay}" Width="Auto"/>
                                     <DataGridTextColumn Header="Spectral Class" Binding="{Binding SpectralClassDisplay}" Width="*"/>
+                                    <DataGridTemplateColumn Header="Canonn" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Button Command="{Binding SendToCanonnCommand}"
+                                                            IsEnabled="{Binding CanSend}"
+                                                            Visibility="{Binding IsSubmitted, Converter={StaticResource InverseBoolToVisibility}}"
+                                                            Padding="6,4" ToolTip="{Binding SendTooltip}">
+                                                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE898;"
+                                                                   Foreground="{StaticResource CanonnAccentBrush}"/>
+                                                    </Button>
+                                                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73E;"
+                                                               Foreground="#4CAF50" FontSize="16"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               ToolTip="Already submitted to Canonn"
+                                                               Visibility="{Binding IsSubmitted, Converter={StaticResource BoolToVisibility}}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>

@@ -78,4 +78,11 @@ public sealed class JetLengthRecord
 
     [Name("updateTime")]
     public string? UpdateTime { get; set; }
+
+    /// <summary>Whether this app has submitted this measurement to Canonn. Local hint only, same
+    /// as <see cref="MeasurementRecord.Submitted"/> - added on top of the NeutronJet tool's original
+    /// column set, but old rows without it just read back as <c>false</c> (CsvHelper is configured
+    /// with <c>MissingFieldFound = null</c>).</summary>
+    [Name("submitted")]
+    public bool Submitted { get; set; }
 }
