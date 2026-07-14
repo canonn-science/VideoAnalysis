@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using Microsoft.VisualBasic.FileIO;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.Core.Diagnostics;
 using VideoAnalysis.Core.Storage;
@@ -155,34 +156,41 @@ public sealed class VideoLibraryViewModel : ObservableObject
     private void RequestRemove(VideoLibraryEntryViewModel entry) => RemoveRequested?.Invoke(entry);
 
     /// <summary>Removes an entry from the library index and, if <paramref name="deleteFile"/> is
-    /// set, deletes its underlying video file from disk too. A failed file delete is logged but
-    /// doesn't stop the index removal - the entry pointed at a file the user was trying to get rid
-    /// of either way.</summary>
-    public void Remove(VideoLibraryEntryViewModel entry, bool deleteFile)
+    /// set, sends its underlying video file to the Recycle Bin too (never a permanent delete - this
+    /// is footage the user may have spent real effort capturing, and a misclick between the two
+    /// confirmation options shouldn't be unrecoverable). Deselecting happens before the entry
+    /// leaves <see cref="Entries"/>, not after - once removed, the ItemsControl tears down that
+    /// row's container (see VideoLibraryPanel's Unloaded handler) and stops listening for the
+    /// IsSelected change that would otherwise stop its MediaElement, so doing this in the other
+    /// order can leave the file locked out from under the delete below. Returns false if
+    /// <paramref name="deleteFile"/> was requested but the file couldn't be removed (e.g. still
+    /// locked, or a permissions error), so the caller can tell the user - a silently-failed delete
+    /// would contradict what they just confirmed.</summary>
+    public bool Remove(VideoLibraryEntryViewModel entry, bool deleteFile)
     {
-        _store.Remove(entry.Id);
-        Entries.Remove(entry);
-
         if (SelectedEntry == entry)
         {
             entry.IsSelected = false;
             SelectedEntry = null;
         }
 
-        if (deleteFile)
+        _store.Remove(entry.Id);
+        Entries.Remove(entry);
+
+        if (deleteFile && File.Exists(entry.FilePath))
         {
             try
             {
-                if (File.Exists(entry.FilePath))
-                {
-                    File.Delete(entry.FilePath);
-                }
+                FileSystem.DeleteFile(entry.FilePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
             }
             catch (Exception ex)
             {
                 AppLog.LogError("VideoLibraryRemove", ex);
+                return false;
             }
         }
+
+        return true;
     }
 
     /// <summary>Updates the stored path after an in-place rename (e.g. the ring-rename flow),

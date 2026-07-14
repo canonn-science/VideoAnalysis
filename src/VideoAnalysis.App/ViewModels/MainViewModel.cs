@@ -320,6 +320,38 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// message (or falling back to a file picker) after the fact.</summary>
     public bool CanAnalyzeRing => ActiveLibraryVideo is { IsFileMissing: false } && SelectedRing is not null;
 
+    /// <summary>Called once a library entry has actually been removed, so every tab that may have
+    /// cached its path (Ring Rotation via <see cref="ActiveLibraryVideo"/>, Station/Jet Cone/Long
+    /// Exposure/Slit Scan via their own <c>VideoFilePath</c>) drops it instead of quietly keeping a
+    /// removed - and possibly now-deleted - file as its active selection.</summary>
+    public void ClearRemovedVideo(VideoLibraryEntryViewModel removed)
+    {
+        if (ActiveLibraryVideo == removed)
+        {
+            ActiveLibraryVideo = null;
+        }
+
+        if (string.Equals(Stations.VideoFilePath, removed.FilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            Stations.VideoFilePath = null;
+        }
+
+        if (string.Equals(JetCone.VideoFilePath, removed.FilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            JetCone.VideoFilePath = null;
+        }
+
+        if (string.Equals(LongExposure.VideoFilePath, removed.FilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            LongExposure.VideoFilePath = null;
+        }
+
+        if (string.Equals(SlitScan.VideoFilePath, removed.FilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            SlitScan.VideoFilePath = null;
+        }
+    }
+
     private void OnLibraryEntrySelected(VideoLibraryEntryViewModel entry)
     {
         ActiveLibraryVideo = entry;
