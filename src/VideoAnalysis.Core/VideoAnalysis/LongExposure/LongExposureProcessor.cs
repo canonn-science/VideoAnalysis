@@ -89,10 +89,10 @@ public static class LongExposureProcessor
 using var motionSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
 using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
 
-            // Grayscale "brightest wins" accumulator, same rule as Maximum, plus a parallel map
+            // Grayscale "brightest wins" accumulator (by BGR-to-GRAY luminance), plus a parallel map
             // recording the 1-based frame index each pixel's max was (most recently) set from -
-            // together these let the final image recolor Maximum's trail by *when* each point on
-            // it was captured instead of what it originally looked like.
+            // together these let the final image recolor the trail by *when* each point on it was
+            // captured instead of by the pixel's original color.
             using var trailMaxGray = new Mat();
             if (needChronoTrails)
             {
