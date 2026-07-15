@@ -110,7 +110,7 @@ public static class SlitScanProcessor
     /// the frame's own center with a horizontal offset derived from <see cref="SlitScanParameters.SlitPositionFraction"/>;
     /// Rotational uses a user-chosen center with an offset (radius) that stays fixed while the
     /// angle sweeps through the frame, producing the spiral/tunnel look.</summary>
-    private static Mat ExtractSlit(Mat frame, SlitScanParameters parameters, double p)
+    internal static Mat ExtractSlit(Mat frame, SlitScanParameters parameters, double p)
     {
         Point2f center;
         double rotationAngleDegrees;
@@ -143,17 +143,40 @@ public static class SlitScanProcessor
         double normalizedAngle = ((rotationAngleDegrees % 180.0) + 180.0) % 180.0;
         Mat source = frame;
         Mat? rotated = null;
+        Point2f sourceCenter = center;
+        int cropHeight = frame.Height;
+        int y = 0;
+
         if (Math.Abs(normalizedAngle) > 0.01)
         {
+            // A same-size WarpAffine destination clips whatever rotates outside the original
+            // bounding box, so expand to the full rotated bounding box instead and re-center the
+            // matrix's translation so the original center point lands at the new canvas's
+            // center - the standard "rotate without cropping" technique. The crop below then
+            // still takes a frame.Height-tall strip (so all slits stay the same height for
+            // compositing), just centered on that recentered point rather than pinned to y=0.
+            double radians = rotationAngleDegrees * Math.PI / 180.0;
+            double cos = Math.Abs(Math.Cos(radians));
+            double sin = Math.Abs(Math.Sin(radians));
+            int boundingWidth = Math.Max(1, (int)Math.Ceiling(frame.Height * sin + frame.Width * cos));
+            int boundingHeight = Math.Max(1, (int)Math.Ceiling(frame.Height * cos + frame.Width * sin));
+
             using var rotationMatrix = Cv2.GetRotationMatrix2D(center, rotationAngleDegrees, 1.0);
+            rotationMatrix.Set(0, 2, rotationMatrix.Get<double>(0, 2) + boundingWidth / 2.0 - center.X);
+            rotationMatrix.Set(1, 2, rotationMatrix.Get<double>(1, 2) + boundingHeight / 2.0 - center.Y);
+
             rotated = new Mat();
-            Cv2.WarpAffine(frame, rotated, rotationMatrix, frame.Size());
+            Cv2.WarpAffine(frame, rotated, rotationMatrix, new Size(boundingWidth, boundingHeight));
             source = rotated;
+            sourceCenter = new Point2f(boundingWidth / 2f, boundingHeight / 2f);
+
+            y = Math.Clamp((int)Math.Round(sourceCenter.Y - cropHeight / 2.0), 0, Math.Max(source.Height - cropHeight, 0));
+            cropHeight = Math.Min(cropHeight, source.Height - y);
         }
 
-        int x = Math.Clamp((int)(center.X + cropOffsetFromCenterPx) - width / 2, 0, Math.Max(source.Width - width, 0));
+        int x = Math.Clamp((int)(sourceCenter.X + cropOffsetFromCenterPx) - width / 2, 0, Math.Max(source.Width - width, 0));
         int clampedWidth = Math.Min(width, source.Width - x);
-        using var view = new Mat(source, new Rect(x, 0, Math.Max(clampedWidth, 1), source.Height));
+        using var view = new Mat(source, new Rect(x, y, Math.Max(clampedWidth, 1), Math.Max(cropHeight, 1)));
         var result = view.Clone();
         rotated?.Dispose();
         return result;
