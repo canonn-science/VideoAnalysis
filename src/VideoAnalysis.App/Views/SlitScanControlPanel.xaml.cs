@@ -258,6 +258,179 @@ public partial class SlitScanControlPanel : UserControl
         MotionDirectionHintText.Visibility = hint is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    /// <summary>True while a preset is being applied, so the field resets and the combo
+    /// reselection that <see cref="PresetCombo_SelectionChanged"/> triggers as side effects
+    /// (via <see cref="ResetToDefaults"/> and <see cref="SelectComboTag"/>) don't reenter it.</summary>
+    private bool _isApplyingPreset;
+
+    private void PresetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isApplyingPreset || PresetHintText is null)
+        {
+            return; // fires once during InitializeComponent, before the rest of the tree exists
+        }
+
+        var tag = (PresetCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+        if (string.IsNullOrEmpty(tag) || tag == "None")
+        {
+            PresetHintText.Text = null;
+            PresetHintText.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _isApplyingPreset = true;
+        try
+        {
+            // Presets set a full parameter bundle, so start from a clean slate rather than
+            // layering their values on top of whatever the user had previously dialed in.
+            ResetToDefaults();
+            SelectComboTag(PresetCombo, tag);
+            PresetHintText.Text = ApplyPreset(tag);
+            PresetHintText.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _isApplyingPreset = false;
+        }
+    }
+
+    /// <summary>Sets the full control bundle for a named result preset (see the "Preset" card in
+    /// the XAML for the list) and returns the explanatory hint to show under the picker. Every
+    /// field it touches remains individually editable afterward.</summary>
+    private string ApplyPreset(string tag)
+    {
+        switch (tag)
+        {
+            case "Panorama":
+                SetMotionMode(SlitScanMotionMode.Static);
+                SlitAngleSlider.Value = 90;
+                SlitPositionSlider.Value = 50;
+                SlitWidthSlider.Value = 2;
+                ScanSpeedSlider.Value = 2;
+                FrameIntervalSlider.Value = 1;
+                return "Static, angle 90°, slit width == scan speed (2px:2px) for a seamless pan-and-stitch. Pan the camera; the slit stays fixed on-screen.";
+
+            case "MovieBarcode":
+                SetMotionMode(SlitScanMotionMode.Static);
+                SlitAngleSlider.Value = 90;
+                SlitPositionSlider.Value = 50;
+                SlitWidthSlider.Value = 1;
+                ScanSpeedSlider.Value = 1;
+                FrameIntervalSlider.Value = 1;
+                SetCustomOutputSize(true, 1920, 1080);
+                return "Static camera and subject - condenses the whole clip's color/brightness into one fixed 1920x1080 poster strip, regardless of source length.";
+
+            case "PhotoFinish":
+                SetMotionMode(SlitScanMotionMode.Static);
+                SlitAngleSlider.Value = 90;
+                SlitPositionSlider.Value = 50;
+                SlitWidthSlider.Value = 2;
+                ScanSpeedSlider.Value = 2;
+                FrameIntervalSlider.Value = 1;
+                return "Same width == speed ratio as Panorama, but for a static camera with a moving subject. Trim In/Out points (Sampling card) to the subject's crossing time.";
+
+            case "StarTrailVortex":
+                SetMotionMode(SlitScanMotionMode.Rotational);
+                RotationCenterXSlider.Value = 50;
+                RotationCenterYSlider.Value = 50;
+                RotationRadiusSlider.Value = 90;
+                RotationRevolutionsSlider.Value = 0.25;
+                SelectComboTag(RotationDirectionCombo, "Clockwise");
+                SlitWidthSlider.Value = 8;
+                ScanSpeedSlider.Value = 2;
+                SelectComboTag(BlendModeCombo, "Average");
+                return "Rotational, locked center, slow revolutions, wide orbit, Average blend - for rotating night-sky footage.";
+
+            case "FastSpiral":
+                SetMotionMode(SlitScanMotionMode.Rotational);
+                RotationRevolutionsSlider.Value = 6;
+                SlitWidthSlider.Value = 1;
+                ScanSpeedSlider.Value = 1;
+                SelectComboTag(BlendModeCombo, "Normal");
+                return "Rotational, many fast revolutions with a narrow slit for a tight, energetic spiral.";
+
+            case "SlowVortex":
+                SetMotionMode(SlitScanMotionMode.Rotational);
+                RotationRevolutionsSlider.Value = 0.5;
+                RotationRadiusSlider.Value = 70;
+                SlitWidthSlider.Value = 10;
+                ScanSpeedSlider.Value = 2;
+                SelectComboTag(BlendModeCombo, "Average");
+                return "Rotational, under one revolution with a wide, overlapping slit and Average blend, for a soft psychedelic wash.";
+
+            case "PortraitWarp":
+                SetMotionMode(SlitScanMotionMode.Sweep);
+                SlitAngleSlider.Value = 90;
+                SlitPositionSlider.Value = 0;
+                SweepEndSlider.Value = 100;
+                SlitWidthSlider.Value = 2;
+                SelectComboTag(SweepEasingCombo, "EaseInOut");
+                return "Sweep, narrow slit, Ease In-Out - the classic stretched, distorted-face slit-scan portrait look.";
+
+            case "GhostTrail":
+                SetMotionMode(SlitScanMotionMode.Static);
+                SlitAngleSlider.Value = 90;
+                SlitPositionSlider.Value = 50;
+                SlitWidthSlider.Value = 12;
+                ScanSpeedSlider.Value = 1;
+                SelectComboTag(BlendModeCombo, "Average");
+                return "Static, wide overlapping slit width, slow scan speed, Average blend - a directional, streaked cousin of Long Exposure mode.";
+
+            case "Glitch":
+                SetMotionMode(SlitScanMotionMode.Sweep);
+                SlitAngleSlider.Value = 90;
+                SlitPositionSlider.Value = 0;
+                SweepEndSlider.Value = 100;
+                SelectComboTag(SweepEasingCombo, "EaseIn");
+                SetAnimateWidth(true);
+                SlitWidthSlider.Value = 2;
+                SlitWidthEndSlider.Value = 14;
+                SelectComboTag(WidthEasingCombo, "EaseIn");
+                return "Sweep with a sharp easing curve plus an animated slit width, simulating CRT/rolling-shutter tearing.";
+
+            case "VerticalPanorama":
+                SetMotionMode(SlitScanMotionMode.Static);
+                SlitAngleSlider.Value = 0;
+                SlitPositionSlider.Value = 50;
+                SlitWidthSlider.Value = 2;
+                ScanSpeedSlider.Value = 2;
+                FrameIntervalSlider.Value = 1;
+                return "Same push-broom stitch as Panorama, rotated 90° (angle 0°) for a vertical pan.";
+
+            default:
+                return string.Empty;
+        }
+    }
+
+    /// <summary>Setting <see cref="RadioButton.IsChecked"/> is a no-op (and won't fire
+    /// <see cref="MotionModeRadio_Checked"/>) if the radio is already checked, so the panel
+    /// visibility it drives is applied explicitly here regardless.</summary>
+    private void SetMotionMode(SlitScanMotionMode mode)
+    {
+        var radio = mode switch
+        {
+            SlitScanMotionMode.Sweep => SweepModeRadio,
+            SlitScanMotionMode.Rotational => RotationalModeRadio,
+            _ => StaticModeRadio,
+        };
+        radio.IsChecked = true;
+        MotionModeRadio_Checked(radio, new RoutedEventArgs());
+    }
+
+    private void SetAnimateWidth(bool animate)
+    {
+        AnimateWidthCheckBox.IsChecked = animate;
+        WidthAnimationPanel.Visibility = animate ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetCustomOutputSize(bool enabled, int width, int height)
+    {
+        CustomOutputSizeCheckBox.IsChecked = enabled;
+        OutputSizePanel.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        OutputWidthTextBox.Text = width.ToString();
+        OutputHeightTextBox.Text = height.ToString();
+    }
+
     private static void SelectComboTag(ComboBox combo, string tag)
     {
         foreach (var obj in combo.Items)
@@ -588,6 +761,9 @@ public partial class SlitScanControlPanel : UserControl
         SelectComboTag(MotionDirectionCombo, "None");
         MotionDirectionHintText.Text = null;
         MotionDirectionHintText.Visibility = Visibility.Collapsed;
+        SelectComboTag(PresetCombo, "None");
+        PresetHintText.Text = null;
+        PresetHintText.Visibility = Visibility.Collapsed;
         SlitAngleSlider.Value = 90;
         SlitPositionSlider.Value = 50;
         SlitWidthSlider.Value = 2;

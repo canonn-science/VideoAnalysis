@@ -38,7 +38,9 @@ jobs:
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
-        run: dotnet test src/VideoAnalysis.Core.Tests/VideoAnalysis.Core.Tests.csproj -c Release
+        run: |
+          dotnet test src/VideoAnalysis.Core.Tests/VideoAnalysis.Core.Tests.csproj -c Release
+          dotnet test src/VideoAnalysis.App.Tests/VideoAnalysis.App.Tests.csproj -c Release
 
       - name: Publish self-contained build
         run: >

@@ -24,4 +24,10 @@
     <Resource Include="Assets\example_horizontal_shot.jpg" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets VideoAnalysis.App.Tests drive SlitScanControlPanel's internal (x:Name-generated)
+         fields directly, the same way VideoAnalysis.Core exposes internals to its own test project. -->
+    <InternalsVisibleTo Include="VideoAnalysis.App.Tests" />
+  </ItemGroup>
+
 </Project>
