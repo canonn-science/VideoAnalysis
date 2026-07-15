@@ -436,6 +436,10 @@ public partial class MainWindow : Window
             var stackedTop = workArea.Bottom - margin;
             foreach (var open in _openNotificationWindows)
             {
+                if (ReferenceEquals(open, window))
+                {
+                    continue;
+                }
                 stackedTop -= open.ActualHeight + margin;
             }
             window.Top = stackedTop - window.ActualHeight;
