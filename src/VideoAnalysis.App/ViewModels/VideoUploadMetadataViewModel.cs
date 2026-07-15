@@ -129,11 +129,27 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
 
     /// <summary>What the Body combo box actually shows: the real value once known, or a literal
     /// "N/A" placeholder while it isn't - typing over the placeholder (or leaving it as-is)
-    /// clears/keeps <see cref="SelectedBodyName"/> null rather than persisting the literal text.</summary>
+    /// clears/keeps <see cref="SelectedBodyName"/> null rather than persisting the literal text.
+    /// Picking an item from the dropdown hands WPF's editable ComboBox back that item's full
+    /// "Name (Type)" <see cref="BodyOption.Display"/> text (there's no separate "value" for an
+    /// editable ComboBox's selection, only its Text) - resolved back to the plain body name here
+    /// so ring lookups and the persisted <see cref="VideoLibraryEntry.BodyName"/> keep matching a
+    /// real Spansh body name instead of the decorated label. Free-typed text that doesn't match a
+    /// known option's display is kept as-is.</summary>
     public string BodyNameDisplay
     {
         get => string.IsNullOrWhiteSpace(SelectedBodyName) ? UnknownPlaceholder : SelectedBodyName;
-        set => SelectedBodyName = IsPlaceholder(value) ? null : value;
+        set
+        {
+            if (IsPlaceholder(value))
+            {
+                SelectedBodyName = null;
+                return;
+            }
+
+            var matched = BodyOptions.FirstOrDefault(o => string.Equals(o.Display, value, StringComparison.Ordinal));
+            SelectedBodyName = matched?.Name ?? value;
+        }
     }
 
     /// <summary>Same placeholder behavior as <see cref="BodyNameDisplay"/>, for the Station combo box.</summary>
@@ -177,7 +193,7 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
 
     public ObservableCollection<SpanshSearchSystem> Suggestions { get; } = new();
 
-    public ObservableCollection<string> BodyNames { get; } = new();
+    public ObservableCollection<BodyOption> BodyOptions { get; } = new();
 
     public ObservableCollection<string> RingNames { get; } = new();
 
@@ -281,7 +297,7 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
             SystemQuery = resolved.Name;
             await LoadDumpAsync(resolved, resetSelections: true).ConfigureAwait(true);
 
-            if (snapshot.BodyName is not null && BodyNames.Contains(snapshot.BodyName))
+            if (snapshot.BodyName is not null && BodyOptions.Any(o => o.Name == snapshot.BodyName))
             {
                 SelectedBodyName = snapshot.BodyName;
             }
@@ -370,12 +386,12 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
         try
         {
             _dump = await _spanshClient.GetDumpAsync(system.Id64).ConfigureAwait(true);
-            BodyNames.Clear();
+            BodyOptions.Clear();
             if (_dump is not null)
             {
                 foreach (var body in _dump.System.Bodies)
                 {
-                    BodyNames.Add(body.Name);
+                    BodyOptions.Add(new BodyOption(body.Name, body.SubType ?? body.Type));
                 }
             }
 

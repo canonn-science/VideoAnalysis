@@ -64,7 +64,7 @@
         <TextBlock Grid.Row="6" Text="Body" FontWeight="SemiBold" Margin="0,0,0,4"
                    Foreground="{StaticResource CanonnTextBrightBrush}"/>
         <ComboBox Grid.Row="7" Margin="0,0,0,12" IsEditable="True"
-                  ItemsSource="{Binding BodyNames}"
+                  ItemsSource="{Binding BodyOptions}" DisplayMemberPath="Display"
                   Text="{Binding BodyNameDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
         <StackPanel Grid.Row="8">
