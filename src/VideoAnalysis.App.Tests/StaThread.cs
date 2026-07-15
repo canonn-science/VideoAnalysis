@@ -49,7 +49,7 @@ public sealed class StaThread : IDisposable
         done.Wait();
         if (error is not null)
         {
-            throw error;
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
         }
         return result;
     }
