@@ -80,8 +80,12 @@ public partial class VideoLibraryPanel : UserControl
         }
         else
         {
-            player.Stop();
-            player.Source = null;
+            // Close(), not just Stop()+Source=null - Close() is what actually tears down the
+            // underlying media session and releases the OS file handle, rather than leaving it to
+            // be cleaned up whenever the next Source assignment happens to trigger it. Still not a
+            // synchronous guarantee (WPF releases the handle on its own background thread), which
+            // is why VideoLibraryViewModel.RemoveAsync retries the delete that follows this.
+            player.Close();
             player.Visibility = Visibility.Collapsed;
             loadingOverlay.Visibility = Visibility.Collapsed;
         }

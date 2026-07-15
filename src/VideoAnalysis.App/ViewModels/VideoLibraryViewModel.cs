@@ -231,7 +231,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
     /// <paramref name="deleteFile"/> was requested but the file couldn't be removed (e.g. still
     /// locked, or a permissions error), so the caller can tell the user - a silently-failed delete
     /// would contradict what they just confirmed.</summary>
-    public bool Remove(VideoLibraryEntryViewModel entry, bool deleteFile)
+    public async Task<bool> RemoveAsync(VideoLibraryEntryViewModel entry, bool deleteFile)
     {
         if (SelectedEntry == entry)
         {
@@ -245,9 +245,32 @@ public sealed class VideoLibraryViewModel : ObservableObject
 
         if (deleteFile && File.Exists(entry.FilePath))
         {
+            return await TryDeleteFileWithRetryAsync(entry.FilePath).ConfigureAwait(true);
+        }
+
+        return true;
+    }
+
+    /// <summary>Deselecting the entry above asks its <c>MediaElement</c> to let go of the file, but
+    /// WPF's underlying media pipeline releases the OS file handle on its own background thread -
+    /// <c>Close()</c>/<c>Source = null</c> can return before that handle is actually freed, so a
+    /// delete attempted immediately afterward can still find the file locked even though the app
+    /// is already in the process of releasing it. Retrying briefly absorbs that lag instead of
+    /// surfacing a spurious "still open" failure for something the app itself is closing.</summary>
+    private static async Task<bool> TryDeleteFileWithRetryAsync(string filePath)
+    {
+        const int maxAttempts = 10;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
             try
             {
-                FileSystem.DeleteFile(entry.FilePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                FileSystem.DeleteFile(filePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                return true;
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                await Task.Delay(150).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -256,7 +279,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
             }
         }
 
-        return true;
+        return false;
     }
 
     /// <summary>Updates the stored path after an in-place rename (e.g. the ring-rename flow),

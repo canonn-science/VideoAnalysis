@@ -309,7 +309,7 @@ public partial class MainWindow : Window
         var wasJetConeActive = string.Equals(_viewModel.JetCone.VideoFilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase);
         var wasSlitScanActive = string.Equals(_viewModel.SlitScan.VideoFilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase);
 
-        var deleteSucceeded = _viewModel.VideoLibrary.Remove(entry, deleteFile);
+        var deleteSucceeded = await _viewModel.VideoLibrary.RemoveAsync(entry, deleteFile);
         _viewModel.ClearRemovedVideo(entry);
 
         if (wasRingRotationActive)
