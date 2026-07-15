@@ -1,4 +1,5 @@
 using OpenCvSharp;
+using VideoAnalysis.Core.Domain;
 
 namespace VideoAnalysis.Core.VideoAnalysis;
 
@@ -49,13 +50,32 @@ public static class HorizontalStarTracker
         double fps = capture.Fps > 0 ? capture.Fps : 30.0;
         var frameSize = new Size(capture.FrameWidth, capture.FrameHeight);
         int estimatedTotal = capture.FrameCount > 0 ? capture.FrameCount : 1;
+        double durationSeconds = estimatedTotal / fps;
         int chunkFrames = Math.Max(30, (int)Math.Round(chunkSeconds * fps));
         int frameStride = ComputeFrameStride(fps, estimatedPeriodSeconds);
 
         string strideNote = frameStride > 1 ? $" · sampling every {frameStride} frames (long estimated period)" : "";
         progress?.Report(new VideoAnalysisProgress(
             VideoAnalysisStage.Opening, 5,
-            $"{frameSize.Width}×{frameSize.Height} · {fps:0.##} fps · {FormatDuration(estimatedTotal / fps)}{strideNote}"));
+            $"{frameSize.Width}×{frameSize.Height} · {fps:0.##} fps · {FormatDuration(durationSeconds)}{strideNote}"));
+
+        // A star's apparent drift only builds up to something a per-chunk fit can pull out of
+        // tracking noise once the recording spans a large enough slice of a full rotation - the
+        // same period/36 threshold the ring/station table already suggests recording *before* the
+        // fact, checked here again against what was actually captured. With no period estimate at
+        // all (parent mass/body unresolved), fall back to the same "typical" period the solver
+        // itself warm-starts from.
+        double assumedPeriodSeconds = estimatedPeriodSeconds is > 0 ? estimatedPeriodSeconds.Value : HorizontalVideoAnalyzer.DefaultSeedPeriodSeconds;
+        double minReliableDurationSeconds = RingMath.MinimumReliableVideoDurationSeconds(assumedPeriodSeconds);
+        if (durationSeconds < minReliableDurationSeconds)
+        {
+            string periodClause = estimatedPeriodSeconds is > 0
+                ? $" of the estimated {FormatDuration(estimatedPeriodSeconds.Value)} rotation period"
+                : "";
+            throw new InvalidOperationException(
+                $"This video is only {FormatDuration(durationSeconds)} long, which is too short for a reliable rotation reading{periodClause}. " +
+                $"Record at least {FormatDuration(minReliableDurationSeconds)} and try again.");
+        }
 
         int horizonCutoff = (int)(frameSize.Height * horizonFraction);
         using var mask = new Mat(frameSize, MatType.CV_8UC1, Scalar.All(0));

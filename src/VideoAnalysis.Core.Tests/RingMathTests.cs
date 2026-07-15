@@ -29,4 +29,13 @@ public class RingMathTests
     {
         Assert.Equal(expectedMinutes, RingMath.SuggestedVideoDurationMinutes(periodSeconds));
     }
+
+    [Theory]
+    [InlineData(600.0, 16.666666666666668)] // the solver's default seed period -> ~16.7s floor
+    [InlineData(36.0, 1.0)]
+    [InlineData(0.0, 0.0)]
+    public void MinimumReliableVideoDuration_IsPeriodOverThirtySix(double periodSeconds, double expectedSeconds)
+    {
+        Assert.Equal(expectedSeconds, RingMath.MinimumReliableVideoDurationSeconds(periodSeconds), precision: 9);
+    }
 }

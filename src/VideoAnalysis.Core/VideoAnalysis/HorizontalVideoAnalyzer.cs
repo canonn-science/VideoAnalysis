@@ -21,7 +21,12 @@ public sealed class HorizontalVideoAnalysisResult
 public static class HorizontalVideoAnalyzer
 {
     private const int MinTracksPerChunk = 20;
-    private const double DefaultSeedPeriodSeconds = 600.0;
+
+    /// <summary>Used both as the solver's warm-start guess and, via
+    /// <see cref="HorizontalStarTracker"/>'s duration gate, as the assumed period when no
+    /// Kepler/body estimate is available at all - a video needs to be at least this "typical"
+    /// long before a rotation reading is attempted blind.</summary>
+    internal const double DefaultSeedPeriodSeconds = 600.0;
 
     public static Task<HorizontalVideoAnalysisResult> AnalyzeAsync(
         string videoPath,
