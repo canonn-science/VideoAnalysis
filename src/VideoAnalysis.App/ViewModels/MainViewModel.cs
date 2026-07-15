@@ -67,8 +67,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         // Null means defaults haven't been seeded yet - discover whatever capture-tool folders
         // actually exist on this machine and persist them below, so later launches don't need to
         // re-discover (and so a user who deliberately clears the list stays empty).
-        var seedingDefaults = settings.WatchedVideoFolders is null && IsFirstRun;
-        foreach (var folder in settings.WatchedVideoFolders ?? (IsFirstRun ? DefaultWatchFolders.Discover() : new List<string>()))
+        var seedingDefaults = settings.WatchedVideoFolders is null;
+        var initialFolders = settings.WatchedVideoFolders ?? DefaultWatchFolders.Discover();
+        foreach (var folder in initialFolders)
         {
             WatchedVideoFolders.Add(CreateWatchedFolderRow(folder));
         }
