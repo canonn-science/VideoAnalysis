@@ -43,6 +43,11 @@ public sealed class VideoLibraryEntry
 
     public VideoLibraryEntryStatus Status { get; set; } = VideoLibraryEntryStatus.NotAnalyzed;
 
+    /// <summary>True while this entry is a placeholder for a recording detected by the folder
+    /// monitor that hasn't finished writing yet - drives the "Recording…" badge and suppresses
+    /// thumbnail generation until the monitor reports completion.</summary>
+    public bool IsRecording { get; set; }
+
     /// <summary>Tab identifiers (e.g. "RingRotation") that have produced a saved measurement
     /// against this entry - a list rather than a single flag so later phases (Station Rotation,
     /// Jet Cone, Long Exposure) don't need a schema change.</summary>

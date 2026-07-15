@@ -1,0 +1,22 @@
+<Window x:Class="VideoAnalysis.App.Views.RecordingNotificationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Video Analysis Lab" Width="340" SizeToContent="Height"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
+        Topmost="True" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="Manual">
+    <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+            BorderThickness="1" CornerRadius="6" Padding="16">
+        <StackPanel>
+            <TextBlock x:Name="TitleText" FontWeight="Bold" FontSize="13" TextWrapping="Wrap"
+                       Foreground="{StaticResource CanonnTextBrightBrush}"/>
+            <TextBlock x:Name="MessageText" Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{StaticResource CanonnTextMutedBrush}"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                <Button x:Name="SecondaryButton" Padding="10,5" Margin="0,0,8,0" Click="SecondaryButton_Click"/>
+                <Button x:Name="PrimaryButton" Padding="14,5" Background="{StaticResource CanonnAccentBrush}"
+                        Foreground="White" Click="PrimaryButton_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

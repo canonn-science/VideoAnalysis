@@ -17,15 +17,23 @@ public sealed class VideoLibraryViewModel : ObservableObject
     private const int PageSize = 10;
 
     private readonly VideoLibraryStore _store;
+    private readonly Func<bool> _showRecordingBadgeSetting;
     private VideoLibraryEntryViewModel? _selectedEntry;
     private bool _isLoadingMore;
 
-    public VideoLibraryViewModel(VideoLibraryStore store)
+    /// <param name="showRecordingBadgeSetting">Reads the live "Show Recording badge" Configuration
+    /// toggle - threaded through rather than read from a static settings object so entry view
+    /// models stay decoupled from <c>AppSettingsStore</c>.</param>
+    public VideoLibraryViewModel(VideoLibraryStore store, Func<bool>? showRecordingBadgeSetting = null)
     {
         _store = store;
+        _showRecordingBadgeSetting = showRecordingBadgeSetting ?? (() => true);
         UploadCommand = new RelayCommand(() => UploadRequested?.Invoke());
         LoadInitialPage();
     }
+
+    private VideoLibraryEntryViewModel CreateRowViewModel(VideoLibraryEntry entry) =>
+        new(entry, Select, RequestRemove, _showRecordingBadgeSetting);
 
     public ObservableCollection<VideoLibraryEntryViewModel> Entries { get; } = new();
 
@@ -53,7 +61,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         Entries.Clear();
         foreach (var entry in _store.GetPage(0, PageSize))
         {
-            Entries.Add(new VideoLibraryEntryViewModel(entry, Select, RequestRemove));
+            Entries.Add(CreateRowViewModel(entry));
         }
     }
 
@@ -71,7 +79,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         {
             foreach (var entry in _store.GetPage(Entries.Count, PageSize))
             {
-                Entries.Add(new VideoLibraryEntryViewModel(entry, Select, RequestRemove));
+                Entries.Add(CreateRowViewModel(entry));
             }
         }
         finally
@@ -139,18 +147,75 @@ public sealed class VideoLibraryViewModel : ObservableObject
         VideoLibraryEntryViewModel rowVm;
         if (existing is not null)
         {
-            rowVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? new VideoLibraryEntryViewModel(existing, Select, RequestRemove);
+            rowVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? CreateRowViewModel(existing);
         }
         else
         {
             var added = _store.Add(entry);
-            rowVm = new VideoLibraryEntryViewModel(added, Select, RequestRemove);
+            rowVm = CreateRowViewModel(added);
             Entries.Insert(0, rowVm);
             _ = GenerateThumbnailAsync(rowVm);
         }
 
         Select(rowVm);
         return rowVm;
+    }
+
+    /// <summary>Adds a placeholder entry for a recording the folder monitor just detected -
+    /// same dedupe-by-path/insert/select shape as <see cref="AddFromUpload"/>, but skips thumbnail
+    /// generation since the file is still being written (a frame read against a growing/locked
+    /// file would just fail). <see cref="MarkRecordingCompleteAsync"/> generates the real thumbnail
+    /// once the monitor reports the recording has finished.</summary>
+    public VideoLibraryEntryViewModel AddPlaceholder(string filePath)
+    {
+        var existing = _store.FindByPath(filePath);
+        if (existing is not null)
+        {
+            var existingVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? CreateRowViewModel(existing);
+            Select(existingVm);
+            return existingVm;
+        }
+
+        var added = _store.Add(new VideoLibraryEntry { FilePath = filePath, IsRecording = true });
+        var rowVm = CreateRowViewModel(added);
+        Entries.Insert(0, rowVm);
+        Select(rowVm);
+        return rowVm;
+    }
+
+    /// <summary>Clears the "Recording…" placeholder state and generates the real thumbnail, once
+    /// the folder monitor reports the underlying file has stopped growing.</summary>
+    public async Task MarkRecordingCompleteAsync(VideoLibraryEntryViewModel entry)
+    {
+        _store.SetRecording(entry.Id, false);
+        entry.Entry.IsRecording = false;
+        entry.NotifyEntryChanged();
+        await GenerateThumbnailAsync(entry).ConfigureAwait(true);
+    }
+
+    /// <summary>Applies metadata and an in-place rename (the rename already performed by the
+    /// metadata window before calling this) onto an existing entry - used by the "recording
+    /// finished, tag it now" flow, where the video is already in the library as a placeholder
+    /// rather than being newly added. <see cref="AddFromUpload"/>'s dedupe path intentionally
+    /// leaves an already-known entry's metadata untouched, so that path can't be reused here.</summary>
+    public void ApplyMetadataToExistingEntry(VideoLibraryEntryViewModel entry, VideoLibraryEntry metadata)
+    {
+        if (!string.Equals(entry.Entry.FilePath, metadata.FilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            UpdatePath(entry, metadata.FilePath);
+        }
+
+        _store.UpdateMetadata(entry.Id, metadata);
+        entry.Entry.SystemName = metadata.SystemName;
+        entry.Entry.SystemId64 = metadata.SystemId64;
+        entry.Entry.SystemX = metadata.SystemX;
+        entry.Entry.SystemY = metadata.SystemY;
+        entry.Entry.SystemZ = metadata.SystemZ;
+        entry.Entry.BodyName = metadata.BodyName;
+        entry.Entry.RingName = metadata.RingName;
+        entry.Entry.StationName = metadata.StationName;
+        entry.Entry.StationType = metadata.StationType;
+        entry.NotifyEntryChanged();
     }
 
     private void RequestRemove(VideoLibraryEntryViewModel entry) => RemoveRequested?.Invoke(entry);

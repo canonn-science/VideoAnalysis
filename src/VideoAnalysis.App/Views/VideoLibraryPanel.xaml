@@ -60,6 +60,25 @@
                                             <TextBlock Text="Loading…" Foreground="White" FontSize="11"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
+                                        <Border Background="#80000000"
+                                                Visibility="{Binding ShowRecordingBadge, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Ellipse Width="14" Height="14" Fill="#FFE23B3B" HorizontalAlignment="Center">
+                                                    <Ellipse.Triggers>
+                                                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                                     From="1.0" To="0.15" Duration="0:0:0.6"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Ellipse.Triggers>
+                                                </Ellipse>
+                                                <TextBlock Text="Recording…" Foreground="White" FontSize="11" Margin="0,6,0,0"
+                                                           HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
                                         <Button Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                                 Width="22" Height="22" Padding="0" Margin="4"
                                                 HorizontalAlignment="Right" VerticalAlignment="Top"

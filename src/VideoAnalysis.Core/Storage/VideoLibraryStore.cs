@@ -69,6 +69,8 @@ public sealed class VideoLibraryStore
 
     public void UpdateThumbnail(Guid id, string thumbnailFileName) => Mutate(id, e => e.ThumbnailFileName = thumbnailFileName);
 
+    public void SetRecording(Guid id, bool isRecording) => Mutate(id, e => e.IsRecording = isRecording);
+
     /// <summary>Tags an entry with a confirmed system/body/ring - e.g. once the user resolves them
     /// via Ring Rotation's picker, so future selections of the same video auto-populate correctly.
     /// Leaves station fields untouched, since that's an orthogonal dimension this doesn't know about.</summary>
@@ -85,6 +87,24 @@ public sealed class VideoLibraryStore
             e.BodyName = bodyName;
             e.RingName = ringName;
         });
+
+    /// <summary>Overwrites every system/body/ring/station field from <paramref name="source"/>
+    /// onto the stored entry - used to tag an already-added placeholder entry after the fact (the
+    /// "recording finished, tag it now" flow), where <see cref="UpdateSystemBodyRing"/>'s stricter
+    /// signature (requiring a resolved body and ring) doesn't fit, since any of these fields may
+    /// be left unset.</summary>
+    public void UpdateMetadata(Guid id, VideoLibraryEntry source) => Mutate(id, e =>
+    {
+        e.SystemName = source.SystemName;
+        e.SystemId64 = source.SystemId64;
+        e.SystemX = source.SystemX;
+        e.SystemY = source.SystemY;
+        e.SystemZ = source.SystemZ;
+        e.BodyName = source.BodyName;
+        e.RingName = source.RingName;
+        e.StationName = source.StationName;
+        e.StationType = source.StationType;
+    });
 
     public void Remove(Guid id)
     {

@@ -38,6 +38,11 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _stationSearchDebounceCts;
     private CancellationTokenSource? _jetConeSearchDebounceCts;
 
+    /// <summary>Currently-open recording notification toasts, most-recent last - used to stack
+    /// simultaneous notifications (e.g. two recordings starting at once) instead of overlapping
+    /// them in the same corner of the screen.</summary>
+    private readonly List<RecordingNotificationWindow> _openNotificationWindows = new();
+
     public MainWindow()
     {
         InitializeComponent();
@@ -51,6 +56,9 @@ public partial class MainWindow : Window
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForSlitScan;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForLongExposure;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForJetCone;
+        _viewModel.AddWatchedFolderRequested += OnAddWatchedFolderRequested;
+        _viewModel.RecordingPromptRequested += OnRecordingPromptRequested;
+        _viewModel.RecordingFinalizedPromptRequested += OnRecordingFinalizedPromptRequested;
         _viewModel.VideoLibrary.SelectFirstEntryIfAny();
         Closed += (_, _) =>
         {
@@ -350,6 +358,92 @@ public partial class MainWindow : Window
         }
 
         return _viewModel.VideoLibrary.AddFromUpload(entry);
+    }
+
+    private void OnAddWatchedFolderRequested()
+    {
+        var dialog = new OpenFolderDialog { Title = "Choose a folder to watch for new recordings" };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        _viewModel.AddWatchedFolder(dialog.FolderName);
+    }
+
+    private void OnRecordingPromptRequested(string path)
+    {
+        var window = new RecordingNotificationWindow(
+            "🔴 Recording started",
+            $"A new recording has been detected in \"{Path.GetDirectoryName(path)}\". Add it to the library?",
+            "Add", "Ignore");
+        window.Decided += choice =>
+        {
+            if (choice == RecordingNotificationChoice.Primary)
+            {
+                _viewModel.VideoLibrary.AddPlaceholder(path);
+            }
+        };
+        ShowNotificationWindow(window);
+    }
+
+    private void OnRecordingFinalizedPromptRequested(VideoLibraryEntryViewModel entry)
+    {
+        var window = new RecordingNotificationWindow(
+            "Recording finished",
+            $"\"{entry.FileName}\" has finished recording. Tag it with a system now?",
+            "Tag Now", "Later");
+        window.Decided += choice =>
+        {
+            if (choice == RecordingNotificationChoice.Primary)
+            {
+                PromptTagFinalizedRecording(entry);
+            }
+        };
+        ShowNotificationWindow(window);
+    }
+
+    /// <summary>Reuses the same metadata modal shown for a manual upload, but applies the result
+    /// onto the already-added placeholder <paramref name="entry"/> instead of creating a new one -
+    /// see <see cref="VideoLibraryViewModel.ApplyMetadataToExistingEntry"/>.</summary>
+    private void PromptTagFinalizedRecording(VideoLibraryEntryViewModel entry)
+    {
+        var metadataViewModel = new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor);
+        var metadataWindow = new VideoUploadMetadataWindow(
+            metadataViewModel, entry.FilePath,
+            autoDetectFromFilename: true,
+            organizeBySystemFolder: _viewModel.OrganizeRenamedVideosBySystem)
+        { Owner = this };
+        if (metadataWindow.ShowDialog() != true || metadataWindow.ResultEntry is not { } metadata)
+        {
+            return;
+        }
+
+        _viewModel.VideoLibrary.ApplyMetadataToExistingEntry(entry, metadata);
+    }
+
+    /// <summary>Shows a non-modal notification toast, stacked above any others already open near
+    /// the bottom-right of the work area, and stops tracking it once closed.</summary>
+    private void ShowNotificationWindow(RecordingNotificationWindow window)
+    {
+        const double margin = 16;
+        var workArea = SystemParameters.WorkArea;
+
+        window.Left = workArea.Right - window.Width - margin;
+        window.Top = workArea.Bottom - margin;
+        window.Loaded += (_, _) =>
+        {
+            var stackedTop = workArea.Bottom - margin;
+            foreach (var open in _openNotificationWindows)
+            {
+                stackedTop -= open.ActualHeight + margin;
+            }
+            window.Top = stackedTop - window.ActualHeight;
+        };
+
+        window.Closed += (_, _) => _openNotificationWindows.Remove(window);
+        _openNotificationWindows.Add(window);
+        window.Show();
     }
 
     private async void StationSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)

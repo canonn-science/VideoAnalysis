@@ -777,6 +777,69 @@
                         <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
                                 BorderThickness="1" Padding="14" Margin="0,16,0,0">
                             <StackPanel>
+                                <TextBlock Text="Monitor Video Folders" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+
+                                <CheckBox Content="Monitor Video Folders" Margin="0,12,0,0"
+                                          IsChecked="{Binding MonitorVideoFolders, Mode=TwoWay}"/>
+                                <TextBlock Margin="24,4,0,0" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"
+                                           Text="Watches the folders below for new recordings from game capture tools (Steam Game Recording, Windows Game Bar, GeForce NOW, …) and offers to add each one to the library as soon as it starts."/>
+
+                                <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding WatchedVideoFolders}"
+                                              IsEnabled="{Binding MonitorVideoFolders}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Path}" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{StaticResource CanonnTextBrush}"/>
+                                                <Button Grid.Column="1" Content="▲" Padding="6,2" Margin="4,0,0,0"
+                                                        ToolTip="Move up" Command="{Binding MoveUpCommand}"/>
+                                                <Button Grid.Column="2" Content="▼" Padding="6,2" Margin="4,0,0,0"
+                                                        ToolTip="Move down" Command="{Binding MoveDownCommand}"/>
+                                                <Button Grid.Column="3" Content="✕" Padding="6,2" Margin="4,0,0,0"
+                                                        ToolTip="Remove" Command="{Binding RemoveCommand}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Content="Add Folder…" Margin="0,4,0,0" Padding="8,4" HorizontalAlignment="Left"
+                                        IsEnabled="{Binding MonitorVideoFolders}"
+                                        Command="{Binding AddWatchedFolderCommand}"/>
+
+                                <Grid Margin="0,14,0,0" IsEnabled="{Binding MonitorVideoFolders}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="File types to watch:" VerticalAlignment="Center"
+                                               Foreground="{StaticResource CanonnTextBrush}" Margin="0,0,8,0"/>
+                                    <TextBox Grid.Column="1" MinWidth="240" HorizontalAlignment="Left"
+                                             Text="{Binding WatchedVideoExtensionsText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </Grid>
+
+                                <CheckBox Content="Prompt when a new recording is detected" Margin="0,14,0,0"
+                                          IsChecked="{Binding PromptOnNewRecording, Mode=TwoWay}"
+                                          IsEnabled="{Binding MonitorVideoFolders}"/>
+                                <CheckBox Content="Add automatically without prompting" Margin="0,10,0,0"
+                                          IsChecked="{Binding AutoAddWithoutPrompting, Mode=TwoWay}"
+                                          IsEnabled="{Binding MonitorVideoFolders}"/>
+                                <CheckBox Content="Show &quot;Recording…&quot; badge on in-progress entries" Margin="0,10,0,0"
+                                          IsChecked="{Binding ShowRecordingBadge, Mode=TwoWay}"
+                                          IsEnabled="{Binding MonitorVideoFolders}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                            <StackPanel>
                                 <TextBlock Text="Claude" FontWeight="SemiBold" FontSize="14"
                                            Foreground="{StaticResource CanonnTextBrightBrush}"/>
                                 <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12"

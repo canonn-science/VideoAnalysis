@@ -6,6 +6,7 @@ using VideoAnalysis.Core.Canonn;
 using VideoAnalysis.Core.Diagnostics;
 using VideoAnalysis.Core.Domain;
 using VideoAnalysis.Core.Journal;
+using VideoAnalysis.Core.Recording;
 using VideoAnalysis.Core.Spansh;
 using VideoAnalysis.Core.Spansh.Models;
 using VideoAnalysis.Core.Storage;
@@ -25,6 +26,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly SecretStore _secretStore = new();
     private readonly JournalMonitor _journalMonitor = new();
     private readonly VideoLibraryStore _videoLibraryStore = new();
+    private readonly RecordingFolderMonitor _recordingMonitor;
 
     private string _systemQuery = string.Empty;
     private string? _errorMessage;
@@ -37,6 +39,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string? _longExposureOutputDirectory;
     private bool _hasClaudeApiKey;
     private VideoLibraryEntryViewModel? _activeLibraryVideo;
+    private bool _monitorVideoFolders;
+    private List<string> _watchedVideoExtensions;
+    private string _watchedVideoExtensionsText;
+    private bool _promptOnNewRecording;
+    private bool _autoAddWithoutPrompting;
+    private bool _showRecordingBadge;
 
     public MainViewModel()
     {
@@ -47,12 +55,32 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _overrideUsername = settings.OverrideUsername;
         _organizeRenamedVideosBySystem = settings.OrganizeRenamedVideosBySystem;
         _longExposureOutputDirectory = settings.LongExposureOutputDirectory;
+        _monitorVideoFolders = settings.MonitorVideoFolders;
+        _watchedVideoExtensions = settings.WatchedVideoExtensions.Count > 0
+            ? settings.WatchedVideoExtensions
+            : new List<string> { ".mp4", ".mkv", ".mov" };
+        _watchedVideoExtensionsText = string.Join(", ", _watchedVideoExtensions);
+        _promptOnNewRecording = settings.PromptOnNewRecording;
+        _autoAddWithoutPrompting = settings.AutoAddWithoutPrompting;
+        _showRecordingBadge = settings.ShowRecordingBadge;
+
+        // Null means defaults haven't been seeded yet - discover whatever capture-tool folders
+        // actually exist on this machine and persist them below, so later launches don't need to
+        // re-discover (and so a user who deliberately clears the list stays empty).
+        var seedingDefaults = settings.WatchedVideoFolders is null && IsFirstRun;
+        foreach (var folder in settings.WatchedVideoFolders ?? (IsFirstRun ? DefaultWatchFolders.Discover() : new List<string>()))
+        {
+            WatchedVideoFolders.Add(CreateWatchedFolderRow(folder));
+        }
+
+        AddWatchedFolderCommand = new RelayCommand(() => AddWatchedFolderRequested?.Invoke());
+
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
         Stations = new StationViewModel();
         JetCone = new JetConeViewModel(SubmitJetLengthRecordsToCanonnAsync);
         LongExposure = new LongExposureViewModel();
         SlitScan = new SlitScanViewModel();
-        VideoLibrary = new VideoLibraryViewModel(_videoLibraryStore);
+        VideoLibrary = new VideoLibraryViewModel(_videoLibraryStore, () => ShowRecordingBadge);
         VideoLibrary.EntrySelected += OnLibraryEntrySelected;
         _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
         _journalMonitor.CommanderNameChanged += OnJournalCommanderNameChanged;
@@ -60,6 +88,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             _journalMonitor.Start();
         }
+
+        _recordingMonitor = new RecordingFolderMonitor(_watchedVideoExtensions);
+        _recordingMonitor.RecordingDetected += OnRecordingDetected;
+        _recordingMonitor.RecordingCompleted += OnRecordingCompleted;
+        if (_monitorVideoFolders)
+        {
+            StartRecordingMonitor();
+        }
+
+        if (seedingDefaults)
+        {
+            PersistSettings();
+        }
+
         _ = LoadSubmittedFromCanonnAsync();
     }
 
@@ -151,6 +193,227 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Master toggle for the whole feature - the Configuration checkbox. Starting/
+    /// stopping the monitor takes effect immediately, same as <see cref="MonitorJournals"/>.</summary>
+    public bool MonitorVideoFolders
+    {
+        get => _monitorVideoFolders;
+        set
+        {
+            if (SetField(ref _monitorVideoFolders, value))
+            {
+                PersistSettings();
+                if (value)
+                {
+                    StartRecordingMonitor();
+                }
+                else
+                {
+                    _recordingMonitor.Stop();
+                }
+            }
+        }
+    }
+
+    /// <summary>The folders watched for new recordings, in display/priority order (order is
+    /// cosmetic only - every folder is watched regardless of position). Adding, removing, or
+    /// reordering takes effect immediately via <see cref="RestartRecordingMonitorIfEnabled"/>.</summary>
+    public ObservableCollection<WatchedFolderRowViewModel> WatchedVideoFolders { get; } = new();
+
+    /// <summary>Comma-separated extensions bound to the Configuration textbox - parsed to/from
+    /// <see cref="AppSettings.WatchedVideoExtensions"/> on every edit.</summary>
+    public string WatchedVideoExtensionsText
+    {
+        get => _watchedVideoExtensionsText;
+        set
+        {
+            if (SetField(ref _watchedVideoExtensionsText, value))
+            {
+                _watchedVideoExtensions = value
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .ToList();
+                PersistSettings();
+                RestartRecordingMonitorIfEnabled();
+            }
+        }
+    }
+
+    public bool PromptOnNewRecording
+    {
+        get => _promptOnNewRecording;
+        set
+        {
+            if (SetField(ref _promptOnNewRecording, value))
+            {
+                PersistSettings();
+            }
+        }
+    }
+
+    public bool AutoAddWithoutPrompting
+    {
+        get => _autoAddWithoutPrompting;
+        set
+        {
+            if (SetField(ref _autoAddWithoutPrompting, value))
+            {
+                PersistSettings();
+            }
+        }
+    }
+
+    public bool ShowRecordingBadge
+    {
+        get => _showRecordingBadge;
+        set
+        {
+            if (SetField(ref _showRecordingBadge, value))
+            {
+                PersistSettings();
+                foreach (var entry in VideoLibrary.Entries)
+                {
+                    entry.NotifyEntryChanged();
+                }
+            }
+        }
+    }
+
+    /// <summary>Opens a folder picker (handled by the view) and, on confirmation, adds the chosen
+    /// folder via <see cref="AddWatchedFolder"/>.</summary>
+    public event Action? AddWatchedFolderRequested;
+
+    public RelayCommand AddWatchedFolderCommand { get; }
+
+    public void AddWatchedFolder(string path)
+    {
+        if (WatchedVideoFolders.Any(f => string.Equals(f.Path, path, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        WatchedVideoFolders.Add(CreateWatchedFolderRow(path));
+        PersistSettings();
+        RestartRecordingMonitorIfEnabled();
+    }
+
+    private WatchedFolderRowViewModel CreateWatchedFolderRow(string path) =>
+        new(path, RemoveWatchedFolder, MoveWatchedFolderUp, MoveWatchedFolderDown);
+
+    private void RemoveWatchedFolder(WatchedFolderRowViewModel row)
+    {
+        WatchedVideoFolders.Remove(row);
+        PersistSettings();
+        RestartRecordingMonitorIfEnabled();
+    }
+
+    private void MoveWatchedFolderUp(WatchedFolderRowViewModel row)
+    {
+        var index = WatchedVideoFolders.IndexOf(row);
+        if (index > 0)
+        {
+            WatchedVideoFolders.Move(index, index - 1);
+            PersistSettings();
+        }
+    }
+
+    private void MoveWatchedFolderDown(WatchedFolderRowViewModel row)
+    {
+        var index = WatchedVideoFolders.IndexOf(row);
+        if (index >= 0 && index < WatchedVideoFolders.Count - 1)
+        {
+            WatchedVideoFolders.Move(index, index + 1);
+            PersistSettings();
+        }
+    }
+
+    private void StartRecordingMonitor()
+    {
+        _recordingMonitor.SetWatchedFolders(WatchedVideoFolders.Select(f => f.Path), _watchedVideoExtensions);
+
+        // Resume any placeholder left "Recording…" by a previous session that never saw it
+        // finish (e.g. the app was closed mid-recording) - the monitor picks up polling it for
+        // completion again without needing a fresh Created event.
+        foreach (var entry in _videoLibraryStore.GetAll().Where(e => e.IsRecording))
+        {
+            _recordingMonitor.TrackExistingFile(entry.FilePath);
+        }
+    }
+
+    private void RestartRecordingMonitorIfEnabled()
+    {
+        if (_monitorVideoFolders)
+        {
+            _recordingMonitor.SetWatchedFolders(WatchedVideoFolders.Select(f => f.Path), _watchedVideoExtensions);
+        }
+    }
+
+    /// <summary>Raised (off the UI thread) when the monitor sees a new matching file and
+    /// <see cref="PromptOnNewRecording"/> is on - the view shows a non-blocking notification;
+    /// accepting it should call <see cref="VideoLibraryViewModel.AddPlaceholder"/>.</summary>
+    public event Action<string>? RecordingPromptRequested;
+
+    /// <summary>Raised (off the UI thread) once a recording finishes and its entry still has no
+    /// system tagged - the view shows a non-blocking "tag it now?" notification.</summary>
+    public event Action<VideoLibraryEntryViewModel>? RecordingFinalizedPromptRequested;
+
+    private void OnRecordingDetected(string path)
+    {
+        void Apply()
+        {
+            if (_videoLibraryStore.FindByPath(path) is not null)
+            {
+                // Already known (e.g. a resumed placeholder, or a watcher edge-case duplicate) -
+                // nothing new to prompt for.
+                return;
+            }
+
+            if (AutoAddWithoutPrompting)
+            {
+                VideoLibrary.AddPlaceholder(path);
+            }
+            else if (PromptOnNewRecording)
+            {
+                RecordingPromptRequested?.Invoke(path);
+            }
+        }
+
+        RunOnUiThread(Apply);
+    }
+
+    private void OnRecordingCompleted(string path)
+    {
+        async void Apply()
+        {
+            var entry = VideoLibrary.Entries.FirstOrDefault(e => string.Equals(e.FilePath, path, StringComparison.OrdinalIgnoreCase));
+            if (entry is null || !entry.IsRecording)
+            {
+                return;
+            }
+
+            await VideoLibrary.MarkRecordingCompleteAsync(entry).ConfigureAwait(true);
+
+            if (string.IsNullOrWhiteSpace(entry.Entry.SystemName))
+            {
+                RecordingFinalizedPromptRequested?.Invoke(entry);
+            }
+        }
+
+        RunOnUiThread(Apply);
+    }
+
+    private static void RunOnUiThread(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            dispatcher.BeginInvoke(action);
+        }
+    }
+
     private void PersistSettings()
     {
         _settingsStore.Save(new AppSettings
@@ -160,6 +423,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             OverrideUsername = _overrideUsername,
             OrganizeRenamedVideosBySystem = _organizeRenamedVideosBySystem,
             LongExposureOutputDirectory = _longExposureOutputDirectory,
+            MonitorVideoFolders = _monitorVideoFolders,
+            WatchedVideoFolders = WatchedVideoFolders.Select(f => f.Path).ToList(),
+            WatchedVideoExtensions = _watchedVideoExtensions,
+            PromptOnNewRecording = _promptOnNewRecording,
+            AutoAddWithoutPrompting = _autoAddWithoutPrompting,
+            ShowRecordingBadge = _showRecordingBadge,
         });
     }
 
@@ -642,6 +911,7 @@ else
         _canonnClient.Dispose();
         _jetConeCanonnClient.Dispose();
         _journalMonitor.Dispose();
+        _recordingMonitor.Dispose();
         Stations.Dispose();
         JetCone.Dispose();
     }

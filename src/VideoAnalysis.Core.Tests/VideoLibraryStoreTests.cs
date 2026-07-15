@@ -127,6 +127,46 @@ public class VideoLibraryStoreTests : IDisposable
     }
 
     [Fact]
+    public void SetRecording_PersistsFlag()
+    {
+        var store = new VideoLibraryStore(LibraryPath);
+        var entry = store.Add(new VideoLibraryEntry { FilePath = @"C:\videos\a.mp4", IsRecording = true });
+
+        Assert.True(Assert.Single(store.GetAll()).IsRecording);
+
+        store.SetRecording(entry.Id, false);
+
+        Assert.False(Assert.Single(store.GetAll()).IsRecording);
+    }
+
+    [Fact]
+    public void UpdateMetadata_OverwritesSystemBodyRingAndStationFields()
+    {
+        var store = new VideoLibraryStore(LibraryPath);
+        var entry = store.Add(new VideoLibraryEntry { FilePath = @"C:\videos\a.mp4" });
+
+        store.UpdateMetadata(entry.Id, new VideoLibraryEntry
+        {
+            FilePath = @"C:\videos\a.mp4",
+            SystemName = "Sol",
+            SystemId64 = 10477373803,
+            SystemX = 0,
+            SystemY = 0,
+            SystemZ = 0,
+            BodyName = "Sol A",
+            StationName = "Jameson Memorial",
+            StationType = "Orbis",
+        });
+
+        var reloaded = Assert.Single(store.GetAll());
+        Assert.Equal("Sol", reloaded.SystemName);
+        Assert.Equal("Sol A", reloaded.BodyName);
+        Assert.Null(reloaded.RingName);
+        Assert.Equal("Jameson Memorial", reloaded.StationName);
+        Assert.Equal("Orbis", reloaded.StationType);
+    }
+
+    [Fact]
     public void Remove_DeletesEntry()
     {
         var store = new VideoLibraryStore(LibraryPath);

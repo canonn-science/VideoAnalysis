@@ -10,16 +10,19 @@ namespace VideoAnalysis.App.ViewModels;
 /// the original file can vanish out from under it), and display text.</summary>
 public sealed class VideoLibraryEntryViewModel : ObservableObject
 {
+    private readonly Func<bool> _showRecordingBadgeSetting;
     private BitmapImage? _thumbnailImageSource;
     private bool _thumbnailLoadAttempted;
     private bool _isSelected;
 
     public VideoLibraryEntryViewModel(
-        VideoLibraryEntry entry, Action<VideoLibraryEntryViewModel>? onSelect = null, Action<VideoLibraryEntryViewModel>? onRemove = null)
+        VideoLibraryEntry entry, Action<VideoLibraryEntryViewModel>? onSelect = null, Action<VideoLibraryEntryViewModel>? onRemove = null,
+        Func<bool>? showRecordingBadgeSetting = null)
     {
         Entry = entry;
         SelectCommand = new RelayCommand(() => onSelect?.Invoke(this));
         RemoveCommand = new RelayCommand(() => onRemove?.Invoke(this));
+        _showRecordingBadgeSetting = showRecordingBadgeSetting ?? (() => true);
     }
 
     public VideoLibraryEntry Entry { get; }
@@ -45,6 +48,15 @@ public sealed class VideoLibraryEntryViewModel : ObservableObject
 
     public bool IsFileMissing => !File.Exists(Entry.FilePath);
 
+    /// <summary>True while this entry is a placeholder for a still-in-progress recording detected
+    /// by the folder monitor - suppresses the thumbnail-not-ready gap and drives the "Recording…"
+    /// badge.</summary>
+    public bool IsRecording => Entry.IsRecording;
+
+    /// <summary>Whether the "Recording…" badge should actually be drawn - gated by both
+    /// <see cref="IsRecording"/> and the app-wide "Show Recording badge" Configuration toggle.</summary>
+    public bool ShowRecordingBadge => Entry.IsRecording && _showRecordingBadgeSetting();
+
     public string DisplayLabel
     {
         get
@@ -63,6 +75,11 @@ public sealed class VideoLibraryEntryViewModel : ObservableObject
             if (IsFileMissing)
             {
                 return "Missing file";
+            }
+
+            if (Entry.IsRecording)
+            {
+                return "Recording…";
             }
 
             return Entry.Status == VideoLibraryEntryStatus.Analyzed ? "Analyzed" : "Not analyzed";
@@ -103,6 +120,8 @@ public sealed class VideoLibraryEntryViewModel : ObservableObject
         OnPropertyChanged(nameof(IsFileMissing));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(DisplayLabel));
+        OnPropertyChanged(nameof(IsRecording));
+        OnPropertyChanged(nameof(ShowRecordingBadge));
     }
 
     private void TryLoadThumbnail()
