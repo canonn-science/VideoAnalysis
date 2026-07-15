@@ -49,7 +49,8 @@ public static class HorizontalStarTracker
 
         double fps = capture.Fps > 0 ? capture.Fps : 30.0;
         var frameSize = new Size(capture.FrameWidth, capture.FrameHeight);
-        int estimatedTotal = capture.FrameCount > 0 ? capture.FrameCount : 1;
+        bool frameCountKnown = capture.FrameCount > 0;
+        int estimatedTotal = frameCountKnown ? capture.FrameCount : 1;
         double durationSeconds = estimatedTotal / fps;
         int chunkFrames = Math.Max(30, (int)Math.Round(chunkSeconds * fps));
         int frameStride = ComputeFrameStride(fps, estimatedPeriodSeconds);
@@ -67,7 +68,7 @@ public static class HorizontalStarTracker
         // itself warm-starts from.
         double assumedPeriodSeconds = estimatedPeriodSeconds is > 0 ? estimatedPeriodSeconds.Value : HorizontalVideoAnalyzer.DefaultSeedPeriodSeconds;
         double minReliableDurationSeconds = RingMath.MinimumReliableVideoDurationSeconds(assumedPeriodSeconds);
-        if (durationSeconds < minReliableDurationSeconds)
+        if (frameCountKnown && durationSeconds < minReliableDurationSeconds)
         {
             string periodClause = estimatedPeriodSeconds is > 0
                 ? $" of the estimated {FormatDuration(estimatedPeriodSeconds.Value)} rotation period"
