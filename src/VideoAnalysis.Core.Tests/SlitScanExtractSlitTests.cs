@@ -101,3 +101,4 @@ public class SlitScanExtractSlitTests
             Assert.Equal(expectedHeight!.Value, slit.Height);
         }
     }
+}
