@@ -212,9 +212,17 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
             if (!_isSavedToHistory)
             {
                 record.Submitted = true;
-                _jetLengthStore.Append(record);
-                _isSavedToHistory = true;
-                Measurements.Refresh();
+                try
+                {
+                    _jetLengthStore.Append(record);
+                    _isSavedToHistory = true;
+                    Measurements.Refresh();
+                }
+                catch (Exception ex)
+                {
+                    AppLog.LogError("JetCone.SaveHistoryAfterSubmit", ex);
+                    CanonnSubmitError = $"Sent to Canonn, but couldn't update local Measurement History: {ex.Message}";
+                }
             }
         }
         catch (Exception ex)
