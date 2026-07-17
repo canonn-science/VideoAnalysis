@@ -43,6 +43,7 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
     private bool _isSubmittingToCanonn;
     private bool _isSubmittedToCanonn;
     private string? _canonnSubmitError;
+    private bool _isSavedToHistory;
 
     public string SystemQuery
     {
@@ -186,9 +187,14 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
         private set => SetField(ref _canonnSubmitError, value);
     }
 
-    /// <summary>Sends the currently reviewed measurement to Canonn independently of
-    /// <see cref="SaveMeasurement"/> - matches Ring Rotation's "Send to Canonn" button being
-    /// available on its results dialog whether or not the user also saves to history.</summary>
+    /// <summary>Sends the currently reviewed measurement to Canonn - can be done before
+    /// <see cref="SaveMeasurement"/> (or instead of ever calling it). Unlike Ring Rotation, where
+    /// "Send to Canonn" lives inside the results dialog and history is only written once, when the
+    /// user clicks the dialog's own terminal "Save" button, Jet Cone's review stays inline on the
+    /// page with no equivalent forcing function - so a successful send saves the measurement to
+    /// history itself (marked submitted), rather than leaving it unrecorded until a separate manual
+    /// save. <see cref="_isSavedToHistory"/> then keeps a later <see cref="SaveMeasurement"/> click
+    /// (e.g. just to dismiss the review) from appending a duplicate row.</summary>
     public async Task SubmitReviewToCanonnAsync(CancellationToken ct = default)
     {
         if (!CanSubmitReviewToCanonn)
@@ -203,6 +209,21 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
             var record = BuildRecord();
             await _submitToCanonn(new[] { record }, ct).ConfigureAwait(true);
             IsSubmittedToCanonn = true;
+            if (!_isSavedToHistory)
+            {
+                record.Submitted = true;
+                try
+                {
+                    _jetLengthStore.Append(record);
+                    _isSavedToHistory = true;
+                    Measurements.Refresh();
+                }
+                catch (Exception ex)
+                {
+                    AppLog.LogError("JetCone.SaveHistoryAfterSubmit", ex);
+                    CanonnSubmitError = $"Sent to Canonn, but couldn't update local Measurement History: {ex.Message}";
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -362,6 +383,7 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
         DistanceSourceLabel = sourceLabel;
         IsSubmittedToCanonn = false;
         CanonnSubmitError = null;
+        _isSavedToHistory = false;
     }
 
     /// <summary>True if the user changed <see cref="DistanceLs"/> from what was originally
@@ -379,15 +401,24 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
         DistanceSourceLabel = null;
         IsSubmittedToCanonn = false;
         CanonnSubmitError = null;
+        _isSavedToHistory = false;
     }
 
     /// <summary>Requires <see cref="SelectedTarget"/> and <see cref="DistanceLs"/> to already be
-    /// set - callers should only enable the Save action once both are available.</summary>
+    /// set - callers should only enable the Save action once both are available. A no-op if
+    /// <see cref="SubmitReviewToCanonnAsync"/> already saved this review to history, so clicking
+    /// Save after Send doesn't append a duplicate row.</summary>
     public void SaveMeasurement()
     {
+        if (_isSavedToHistory)
+        {
+            return;
+        }
+
         var record = BuildRecord();
         record.Submitted = IsSubmittedToCanonn;
         _jetLengthStore.Append(record);
+        _isSavedToHistory = true;
         Measurements.Refresh();
     }
 
