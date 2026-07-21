@@ -29,7 +29,7 @@ public class JournalHistoryLookupTests : IDisposable
     public void FindLocationAt_GoesStraightToThePrimaryFile_IgnoringLaterEvents()
     {
         File.WriteAllText(JournalPath("Journal.2026-01-01T000000.01.log"),
-            "{\"timestamp\":\"2026-01-01T00:00:00Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Sol\"}\n" +
+            "{\"timestamp\":\"2026-01-01T00:00:00Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Sol\",\"SystemAddress\":10477373803}\n" +
             "{\"timestamp\":\"2026-01-01T01:00:00Z\",\"event\":\"SupercruiseExit\",\"Body\":\"Earth\"}\n" +
             "{\"timestamp\":\"2026-01-01T02:00:00Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Deciat\"}\n");
 
@@ -37,6 +37,7 @@ public class JournalHistoryLookupTests : IDisposable
 
         Assert.NotNull(snapshot);
         Assert.Equal("Sol", snapshot!.SystemName);
+        Assert.Equal(10477373803L, snapshot.SystemId64);
         Assert.Equal("Earth", snapshot.BodyName);
     }
 
@@ -118,6 +119,19 @@ public class JournalHistoryLookupTests : IDisposable
 
         Assert.NotNull(snapshot);
         Assert.Null(snapshot!.SystemName);
+    }
+
+    [Fact]
+    public void FindLocationAt_SystemId64_IsNull_WhenEventHasNoSystemAddress()
+    {
+        File.WriteAllText(JournalPath("Journal.2026-01-01T000000.01.log"),
+            "{\"timestamp\":\"2026-01-01T00:00:00Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Sol\"}\n");
+
+        var snapshot = JournalHistoryLookup.FindLocationAt(_directory, new DateTime(2026, 1, 1, 1, 0, 0, DateTimeKind.Utc));
+
+        Assert.NotNull(snapshot);
+        Assert.Equal("Sol", snapshot!.SystemName);
+        Assert.Null(snapshot.SystemId64);
     }
 
     [Fact]

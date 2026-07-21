@@ -61,11 +61,24 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
             _selectedRingName = prefillRingName;
             _ = LoadDumpAsync(_selectedSystem, resetSelections: false);
         }
-        else if (journalMonitor?.LastKnownSystemName is not null)
+        else if (journalMonitor?.LastKnownSystemName is { } liveSystemName)
         {
-            // Text-only prefill - an id64 still needs resolving via typeahead/submit, same as
-            // the main tabs' system search.
-            _systemQuery = journalMonitor.LastKnownSystemName;
+            if (journalMonitor.LastKnownSystemId64 is long liveId64)
+            {
+                // The journal's SystemAddress gives us the id64 directly - go straight to the
+                // Spansh dump lookup instead of the name typeahead, which can lag behind for a
+                // system visited (or renamed) very recently. Coordinates get filled in from the
+                // dump itself once LoadDumpAsync completes.
+                _selectedSystem = new SpanshSearchSystem { Id64 = liveId64, Name = liveSystemName };
+                _systemQuery = liveSystemName;
+                _ = LoadDumpAsync(_selectedSystem, resetSelections: false);
+            }
+            else
+            {
+                // No id64 available - fall back to text-only prefill; it still needs resolving
+                // via typeahead/submit, same as the main tabs' system search.
+                _systemQuery = liveSystemName;
+            }
         }
 
         if (_selectedBodyName is null)
@@ -286,8 +299,19 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
                 return;
             }
 
-            var response = await _spanshClient.SearchSystemsAsync(systemName).ConfigureAwait(true);
-            var resolved = response.MinMax.FirstOrDefault(s => string.Equals(s.Name, systemName, StringComparison.OrdinalIgnoreCase));
+            SpanshSearchSystem? resolved;
+            if (snapshot.SystemId64 is long historyId64)
+            {
+                // Same reasoning as the live prefill above: the journal's own SystemAddress
+                // skips the name typeahead's lag entirely.
+                resolved = new SpanshSearchSystem { Id64 = historyId64, Name = systemName };
+            }
+            else
+            {
+                var response = await _spanshClient.SearchSystemsAsync(systemName).ConfigureAwait(true);
+                resolved = response.MinMax.FirstOrDefault(s => string.Equals(s.Name, systemName, StringComparison.OrdinalIgnoreCase));
+            }
+
             if (resolved is null)
             {
                 return;
@@ -389,6 +413,20 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
             BodyOptions.Clear();
             if (_dump is not null)
             {
+                // The dump is the authoritative source for this id64 - sync name/coords from it
+                // rather than whatever placeholder the caller passed in (e.g. a journal-sourced
+                // system built with X/Y/Z defaulted to 0 pending this lookup).
+                _selectedSystem = new SpanshSearchSystem
+                {
+                    Id64 = system.Id64,
+                    Name = _dump.System.Name,
+                    X = _dump.System.Coords.X,
+                    Y = _dump.System.Coords.Y,
+                    Z = _dump.System.Coords.Z,
+                };
+                OnPropertyChanged(nameof(ResolvedSystemName));
+                OnPropertyChanged(nameof(SuggestedFileBaseName));
+
                 foreach (var body in _dump.System.Bodies)
                 {
                     BodyOptions.Add(new BodyOption(body.Name, body.SubType ?? body.Type));

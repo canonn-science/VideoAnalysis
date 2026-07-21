@@ -46,6 +46,18 @@ public class JournalMonitorTests : IDisposable
     }
 
     [Theory]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"Location\",\"StarSystem\":\"Shinrarta Dezhra\",\"SystemAddress\":3932277478106}", 3932277478106L)]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Sol\",\"SystemAddress\":10477373803}", 10477373803L)]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Sol\"}", null)]
+    [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"Commander\",\"Name\":\"HARDCASE\"}", null)]
+    [InlineData("not json", null)]
+    [InlineData("", null)]
+    public void TryExtractSystemId64_ParsesExpectedEvents(string line, long? expected)
+    {
+        Assert.Equal(expected, JournalMonitor.TryExtractSystemId64(line));
+    }
+
+    [Theory]
     [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"ApproachBody\",\"Body\":\"Earth\"}", "Earth")]
     [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"SupercruiseExit\",\"Body\":\"Sol A\"}", "Sol A")]
     [InlineData("{\"timestamp\":\"2026-07-01T00:00:00Z\",\"event\":\"Commander\",\"Name\":\"HARDCASE\"}", null)]
@@ -249,6 +261,30 @@ public class JournalMonitorTests : IDisposable
             monitor.Start();
             Assert.True(signal.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal("Sol", monitor.LastKnownSystemName);
+        }
+        finally
+        {
+            monitor.Dispose();
+        }
+    }
+
+    [Fact]
+    public void Start_PopulatesLastKnownSystemId64_FromExistingJournalFile()
+    {
+        File.WriteAllText(JournalPath("Journal.2601010000.01.log"),
+            "{\"event\":\"Location\",\"StarSystem\":\"Shinrarta Dezhra\",\"SystemAddress\":3932277478106}\n" +
+            "{\"event\":\"FSDJump\",\"StarSystem\":\"Sol\",\"SystemAddress\":10477373803}\n");
+
+        var monitor = new JournalMonitor(_directory);
+        using var signal = new ManualResetEventSlim(false);
+        monitor.SystemLocationChanged += _ => signal.Set();
+
+        try
+        {
+            monitor.Start();
+            Assert.True(signal.Wait(TimeSpan.FromSeconds(5)));
+            Assert.Equal("Sol", monitor.LastKnownSystemName);
+            Assert.Equal(10477373803L, monitor.LastKnownSystemId64);
         }
         finally
         {

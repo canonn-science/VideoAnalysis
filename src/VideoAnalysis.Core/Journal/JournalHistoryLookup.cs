@@ -7,7 +7,7 @@ namespace VideoAnalysis.Core.Journal;
 /// <summary>The commander's system/body/station as of some point in the past, reconstructed by
 /// replaying journal history rather than watching live events (contrast with
 /// <see cref="JournalMonitor"/>'s live "last known" state).</summary>
-public sealed record JournalLocationSnapshot(string? SystemName, string? BodyName, string? StationName, string? StationType);
+public sealed record JournalLocationSnapshot(string? SystemName, long? SystemId64, string? BodyName, string? StationName, string? StationType);
 
 /// <summary>Answers "where was the commander at time T?" without reading years of journal
 /// history: Elite's journal filenames embed the session's start time in local clock time (e.g.
@@ -58,6 +58,7 @@ public static class JournalHistoryLookup
         }
 
         string? systemName = null;
+        long? systemId64 = null;
         string? bodyName = null;
         string? stationName = null;
         string? stationType = null;
@@ -71,6 +72,7 @@ public static class JournalHistoryLookup
         {
             var isPrimaryFile = i == primaryIndex;
             string? fileSystemName = null;
+            long? fileSystemId64 = null;
             string? fileBodyName = null;
             string? fileStationName = null;
             string? fileStationType = null;
@@ -95,6 +97,7 @@ public static class JournalHistoryLookup
                 if (!systemDetermined)
                 {
                     fileSystemName = JournalMonitor.TryExtractSystemName(line) ?? fileSystemName;
+                    fileSystemId64 = JournalMonitor.TryExtractSystemId64(line) ?? fileSystemId64;
                 }
 
                 if (!bodyDetermined)
@@ -126,6 +129,7 @@ public static class JournalHistoryLookup
             if (!systemDetermined && fileSystemName is not null)
             {
                 systemName = fileSystemName;
+                systemId64 = fileSystemId64;
                 systemDetermined = true;
             }
 
@@ -148,7 +152,7 @@ public static class JournalHistoryLookup
             }
         }
 
-        return foundAny ? new JournalLocationSnapshot(systemName, bodyName, stationName, stationType) : null;
+        return foundAny ? new JournalLocationSnapshot(systemName, systemId64, bodyName, stationName, stationType) : null;
     }
 
     private static List<JournalFile> EnumerateSortedFiles(string journalDirectory)

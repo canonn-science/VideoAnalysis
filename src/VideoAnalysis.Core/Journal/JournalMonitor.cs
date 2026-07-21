@@ -18,6 +18,7 @@ public sealed class JournalMonitor : IDisposable
     private string? _currentFilePath;
     private long _readOffset;
     private string? _lastKnownSystemName;
+    private long? _lastKnownSystemId64;
     private string? _lastKnownBodyName;
     private string? _lastKnownStationName;
     private string? _lastKnownStationType;
@@ -31,6 +32,15 @@ public sealed class JournalMonitor : IDisposable
     public string? LastKnownSystemName
     {
         get { lock (_lock) { return _lastKnownSystemName; } }
+    }
+
+    /// <summary>The id64 (Elite's <c>SystemAddress</c>) of <see cref="LastKnownSystemName"/>, from
+    /// the same <c>Location</c>/<c>FSDJump</c>/<c>CarrierJump</c> events - lets callers look a
+    /// system up on Spansh by id64 directly instead of depending on its (sometimes laggy) name
+    /// typeahead index.</summary>
+    public long? LastKnownSystemId64
+    {
+        get { lock (_lock) { return _lastKnownSystemId64; } }
     }
 
     /// <summary>The most recently observed current body, from <c>ApproachBody</c>/<c>SupercruiseExit</c>
@@ -159,6 +169,7 @@ public sealed class JournalMonitor : IDisposable
     {
         string? lastName = null;
         string? lastSystem = null;
+        long? lastSystemId64 = null;
         string? lastBody = null;
         var stationTouched = false;
         string? stationName = null;
@@ -225,6 +236,10 @@ public sealed class JournalMonitor : IDisposable
                                 break;
                             case "Location" or "FSDJump" or "CarrierJump" when root.TryGetProperty("StarSystem", out var systemProp):
                                 lastSystem = systemProp.GetString() ?? lastSystem;
+                                if (root.TryGetProperty("SystemAddress", out var addressProp) && addressProp.TryGetInt64(out var address))
+                                {
+                                    lastSystemId64 = address;
+                                }
                                 break;
                             case "ApproachBody" or "SupercruiseExit" when root.TryGetProperty("Body", out var bodyProp):
                                 lastBody = bodyProp.GetString() ?? lastBody;
@@ -250,6 +265,7 @@ public sealed class JournalMonitor : IDisposable
                 if (lastSystem is not null)
                 {
                     _lastKnownSystemName = lastSystem;
+                    _lastKnownSystemId64 = lastSystemId64;
                 }
 
                 if (lastBody is not null)
@@ -343,6 +359,40 @@ public sealed class JournalMonitor : IDisposable
             }
 
             return root.TryGetProperty("StarSystem", out var systemProp) ? systemProp.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Same event filter as <see cref="TryExtractSystemName"/>, but for the accompanying
+    /// <c>SystemAddress</c> (the system's id64) - lets Spansh lookups skip its name typeahead index.</summary>
+    public static long? TryExtractSystemId64(string line)
+    {
+        if (line.Length == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("event", out var eventProp))
+            {
+                return null;
+            }
+
+            var eventName = eventProp.GetString();
+            if (eventName is not ("Location" or "FSDJump" or "CarrierJump"))
+            {
+                return null;
+            }
+
+            return root.TryGetProperty("SystemAddress", out var addressProp) && addressProp.TryGetInt64(out var address)
+                ? address
+                : null;
         }
         catch (JsonException)
         {
