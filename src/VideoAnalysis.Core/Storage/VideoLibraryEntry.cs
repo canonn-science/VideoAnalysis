@@ -33,6 +33,14 @@ public sealed class VideoLibraryEntry
     public string? StationName { get; set; }
     public string? StationType { get; set; }
 
+    /// <summary>Frame dimensions and duration, read once via <c>QuickVideoMetadataReader</c> the
+    /// same moment the thumbnail is generated (a finished file, never a still-growing recording).
+    /// Null for entries added before this existed, or if the Shell property lookup came up empty -
+    /// never backfilled retroactively, same as <see cref="ThumbnailFileName"/>.</summary>
+    public int? VideoWidth { get; set; }
+    public int? VideoHeight { get; set; }
+    public double? VideoDurationSeconds { get; set; }
+
     public DateTime AddedUtc { get; set; }
 
     /// <summary>Drives most-recently-used ordering in the library panel.</summary>

@@ -69,6 +69,16 @@ public sealed class VideoLibraryStore
 
     public void UpdateThumbnail(Guid id, string thumbnailFileName) => Mutate(id, e => e.ThumbnailFileName = thumbnailFileName);
 
+    /// <summary>Persists the frame dimensions/duration read alongside thumbnail generation - see
+    /// <see cref="VideoLibraryEntry.VideoWidth"/>'s doc for why this only ever happens once, at
+    /// that same moment, rather than being kept live.</summary>
+    public void UpdateVideoMetadata(Guid id, int? width, int? height, double? durationSeconds) => Mutate(id, e =>
+    {
+        e.VideoWidth = width;
+        e.VideoHeight = height;
+        e.VideoDurationSeconds = durationSeconds;
+    });
+
     public void SetRecording(Guid id, bool isRecording) => Mutate(id, e => e.IsRecording = isRecording);
 
     /// <summary>Tags an entry with a confirmed system/body/ring - e.g. once the user resolves them

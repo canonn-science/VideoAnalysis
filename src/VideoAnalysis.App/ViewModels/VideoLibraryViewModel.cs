@@ -364,5 +364,23 @@ public sealed class VideoLibraryViewModel : ObservableObject
         {
             AppLog.LogError("VideoLibraryThumbnail", ex);
         }
+
+        try
+        {
+            // Same "finished file, never a still-growing recording" moment as the thumbnail above -
+            // read via the Shell property system (near-instant, no frame decode) rather than
+            // OpenCV, so this doesn't add a second slow file-open on top of the one above.
+            var metadata = await Task.Run(() => QuickVideoMetadataReader.Read(rowVm.FilePath)).ConfigureAwait(true);
+            var durationSeconds = metadata.Duration?.TotalSeconds;
+            _store.UpdateVideoMetadata(rowVm.Id, metadata.Width, metadata.Height, durationSeconds);
+            rowVm.Entry.VideoWidth = metadata.Width;
+            rowVm.Entry.VideoHeight = metadata.Height;
+            rowVm.Entry.VideoDurationSeconds = durationSeconds;
+            rowVm.NotifyEntryChanged();
+        }
+        catch (Exception ex)
+        {
+            AppLog.LogError("VideoLibraryMetadata", ex);
+        }
     }
 }
