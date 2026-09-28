@@ -381,6 +381,11 @@ public partial class MainWindow : Window
     /// Cancelling leaves the file untouched and not in the library, same as the old "Ignore".</summary>
     private async void OnRecordingTagPromptRequested(string path)
     {
+        // Give the recording a couple of seconds to actually start before stealing focus with the
+        // modal - popping it up immediately can switch focus away from the game mid-launch and
+        // cause the wrong window (or nothing) to be captured.
+        await Task.Delay(TimeSpan.FromSeconds(2));
+
         var metadataViewModel = new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor);
         var metadataWindow = new VideoUploadMetadataWindow(
             metadataViewModel, path,
