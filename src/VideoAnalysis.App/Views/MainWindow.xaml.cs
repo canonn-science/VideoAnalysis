@@ -747,9 +747,10 @@ else
         JetConeSendToCanonnButton.Content = "Send to Canonn";
     }
 
-    /// <summary>Sends the currently reviewed measurement to Canonn - independent of "Save
-    /// Measurement", mirroring Ring Rotation's results dialog where sending and saving to history
-    /// are separate actions.</summary>
+    /// <summary>Sends the currently reviewed measurement to Canonn - already saves it to history
+    /// as part of a successful send (see <see cref="JetConeViewModel.SubmitReviewToCanonnAsync"/>),
+    /// so on success this also closes the review the same way the "Save Measurement" button does,
+    /// rather than leaving the confirmed panel sitting open.</summary>
     private async void JetConeSendToCanonnButton_Click(object sender, RoutedEventArgs e)
     {
         var text = JetConeDistanceTextBox.Text.Trim();
@@ -763,7 +764,9 @@ else
         await _viewModel.JetCone.SubmitReviewToCanonnAsync();
         if (_viewModel.JetCone.IsSubmittedToCanonn)
         {
-            JetConeSendToCanonnButton.Content = "Sent to Canonn ✓";
+            _viewModel.JetCone.ResetReview();
+            JetConeDistanceTextBox.Text = string.Empty;
+            JetConeSendToCanonnButton.Content = "Send to Canonn";
         }
     }
 
