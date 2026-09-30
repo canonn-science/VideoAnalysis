@@ -57,6 +57,33 @@ public sealed class VideoLibraryEntryViewModel : ObservableObject
     /// <see cref="IsRecording"/> and the app-wide "Show Recording badge" Configuration toggle.</summary>
     public bool ShowRecordingBadge => Entry.IsRecording && _showRecordingBadgeSetting();
 
+    /// <summary>"1920×1080 • 3:45"-style summary for the thumbnail's corner badge - whichever of
+    /// resolution/duration is actually known, joined together, or null if neither is (an entry
+    /// added before this existed, a still-recording placeholder, or a failed Shell lookup).</summary>
+    public string? VideoMetadataText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (Entry.VideoWidth is int width && Entry.VideoHeight is int height)
+            {
+                parts.Add($"{width}×{height}");
+            }
+
+            if (Entry.VideoDurationSeconds is double seconds)
+            {
+                parts.Add(FormatDuration(TimeSpan.FromSeconds(seconds)));
+            }
+
+            return parts.Count > 0 ? string.Join(" • ", parts) : null;
+        }
+    }
+
+    public bool HasVideoMetadata => VideoMetadataText is not null;
+
+    private static string FormatDuration(TimeSpan duration) =>
+        duration.TotalHours >= 1 ? duration.ToString(@"h\:mm\:ss") : duration.ToString(@"m\:ss");
+
     public string DisplayLabel
     {
         get
@@ -122,6 +149,8 @@ public sealed class VideoLibraryEntryViewModel : ObservableObject
         OnPropertyChanged(nameof(DisplayLabel));
         OnPropertyChanged(nameof(IsRecording));
         OnPropertyChanged(nameof(ShowRecordingBadge));
+        OnPropertyChanged(nameof(VideoMetadataText));
+        OnPropertyChanged(nameof(HasVideoMetadata));
     }
 
     private void TryLoadThumbnail()

@@ -12,7 +12,27 @@ public partial class VideoLibraryPanel : UserControl
     public VideoLibraryPanel()
     {
         InitializeComponent();
+        DataContextChanged += VideoLibraryPanel_DataContextChanged;
     }
+
+    private void VideoLibraryPanel_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is VideoLibraryViewModel oldViewModel)
+        {
+            oldViewModel.EntrySelected -= OnEntrySelectedScrollToTop;
+        }
+
+        if (e.NewValue is VideoLibraryViewModel newViewModel)
+        {
+            newViewModel.EntrySelected += OnEntrySelectedScrollToTop;
+        }
+    }
+
+    /// <summary>Selecting an entry always moves it to the top of the MRU-ordered list (see
+    /// <see cref="VideoLibraryViewModel.Select"/>) - without this, picking one from further down
+    /// the (possibly scrolled) list makes it look like it vanished, since it immediately jumps
+    /// out of view to a spot the user isn't looking at (issue #54).</summary>
+    private void OnEntrySelectedScrollToTop(VideoLibraryEntryViewModel entry) => LibraryScrollViewer.ScrollToTop();
 
     /// <summary>Each library row carries its own <c>Player</c> MediaElement (shown in place of
     /// the static thumbnail once that row becomes selected). Wiring is per-instance because

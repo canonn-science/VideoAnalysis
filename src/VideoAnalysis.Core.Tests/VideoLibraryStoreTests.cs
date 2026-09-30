@@ -127,6 +127,20 @@ public class VideoLibraryStoreTests : IDisposable
     }
 
     [Fact]
+    public void UpdateVideoMetadata_PersistsWidthHeightAndDuration()
+    {
+        var store = new VideoLibraryStore(LibraryPath);
+        var entry = store.Add(new VideoLibraryEntry { FilePath = @"C:\videos\a.mp4" });
+
+        store.UpdateVideoMetadata(entry.Id, 1920, 1080, 225.5);
+
+        var reloaded = Assert.Single(store.GetAll());
+        Assert.Equal(1920, reloaded.VideoWidth);
+        Assert.Equal(1080, reloaded.VideoHeight);
+        Assert.Equal(225.5, reloaded.VideoDurationSeconds);
+    }
+
+    [Fact]
     public void SetRecording_PersistsFlag()
     {
         var store = new VideoLibraryStore(LibraryPath);

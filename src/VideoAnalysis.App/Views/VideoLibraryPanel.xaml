@@ -29,10 +29,27 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border x:Name="EntryRoot" Background="{StaticResource CanonnSurfaceBrush}"
-                                BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1"
+                        <Border x:Name="EntryRoot"
                                 CornerRadius="4" Margin="0,0,0,8" Padding="8" Cursor="Hand"
                                 Loaded="EntryRoot_Loaded" Unloaded="EntryRoot_Unloaded">
+                            <Border.Style>
+                                <!-- Selected entry gets a brighter background and an accent-colored,
+                                     thicker border so it reads as "this one's active" at a glance -
+                                     the playback controls only appearing below (Grid.Row 3) were the
+                                     sole cue before, easy to miss in a long scrolled list (issue #55). -->
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource CanonnSurfaceBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource CanonnBorderBrush}"/>
+                                    <Setter Property="BorderThickness" Value="1"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource CanonnSurfaceHoverBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource CanonnAccentBrush}"/>
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
                             <Border.InputBindings>
                                 <MouseBinding MouseAction="LeftClick" Command="{Binding SelectCommand}"/>
                             </Border.InputBindings>
@@ -86,6 +103,15 @@
                                                 ToolTip="Remove from library"
                                                 AutomationProperties.Name="Remove from library"
                                                 Command="{Binding RemoveCommand}"/>
+
+                                        <!-- Resolution/duration, YouTube-style corner badge (issue #55) -
+                                             absent entirely (rather than an empty badge) when neither is
+                                             known yet, e.g. an entry added before this existed. -->
+                                        <Border Background="#A0000000" CornerRadius="2" Padding="4,1" Margin="4"
+                                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                Visibility="{Binding HasVideoMetadata, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="{Binding VideoMetadataText}" Foreground="White" FontSize="10"/>
+                                        </Border>
                                     </Grid>
                                 </Border>
 
